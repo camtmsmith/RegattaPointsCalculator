@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.2';
+var VERSION='v1.3';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -178,6 +178,7 @@ panel.innerHTML=
   +'<label style="display:flex;align-items:center;gap:5px;cursor:pointer;"><input id="bsra-auto" type="checkbox" checked onchange="bsraToggleAuto(this.checked)" style="cursor:pointer;accent-color:#2bb3c0;">Auto-refresh</label>'
   +'<span id="bsra-checked" style="margin-left:auto;"></span>'
   +'</div></div>'
+  +'<div id="bsra-update-banner"></div>'
   +'<div style="height:2px;background:rgba(255,255,255,.05);"><div id="bsra-prog" style="height:100%;background:#2bb3c0;width:0%;transition:width .5s;"></div></div>'
   +'<div id="bsra-content" style="padding:14px 16px;"></div>'
   +'<div style="padding:6px 16px 10px;border-top:1px solid rgba(255,255,255,.06);">'
@@ -750,6 +751,38 @@ function hookWebsocket(){
   };
 }
 
+// ── Update check (fetch-only; can't self-update on sites that block <script> loads) ──
+var UPDATE_CHECK_URL='https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js';
+var updateDismissed=false;
+async function checkForUpdate(){
+  if(updateDismissed)return;
+  var banner=document.getElementById('bsra-update-banner');
+  if(!banner)return; // panel closed — nothing to show it in
+  try{
+    var res=await fetch(UPDATE_CHECK_URL+'?_='+Date.now(),{cache:'no-cache'});
+    if(!res.ok)return;
+    var text=await res.text();
+    var m=text.match(/VERSION\s*=\s*['"]([^'"]+)['"]/);
+    if(!m)return;
+    if(m[1]&&m[1]!==VERSION)showUpdateBanner(m[1]);
+  }catch(e){/* likely blocked by the site's own policy — fail silently, it's a nice-to-have */}
+}
+function showUpdateBanner(remoteVersion){
+  var banner=document.getElementById('bsra-update-banner');
+  if(!banner||updateDismissed)return;
+  banner.innerHTML=
+    '<div style="margin:0 14px 10px;background:rgba(43,179,192,.12);border:1px solid rgba(43,179,192,.35);border-radius:8px;padding:10px 30px 10px 12px;font-size:11px;color:#bfe6ea;line-height:1.6;position:relative;">'
+    +'<button onclick="bsraDismissUpdate()" title="Dismiss" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#7d94a0;font-size:15px;cursor:pointer;line-height:1;padding:0;">&times;</button>'
+    +'<b style="color:#5fd3df;">Update available &mdash; '+remoteVersion+' (you have '+VERSION+')</b><br>'
+    +'This bookmark can\u2019t update itself on this site. To get the new version: open the installer page you used originally, reload it, and drag the button in again to replace this bookmark.'
+    +'</div>';
+}
+window.bsraDismissUpdate=function(){
+  updateDismissed=true;
+  var banner=document.getElementById('bsra-update-banner');
+  if(banner)banner.innerHTML='';
+};
+
 async function bsraLoad(){
   if(!RID){bsraLog('No regatta ID in the page URL. Open the live results page for a BSRA regatta.','#e55');bsraStatus('No regatta ID');return;}
   await sleep(400+Math.floor(Math.random()*700));
@@ -793,5 +826,7 @@ async function bsraLoad(){
   hookWebsocket();
   schedulePoll();
 }
+checkForUpdate();
+setInterval(checkForUpdate,20*60*1000); // recheck roughly every 20 min in case a longer session outlasts an update
 bsraLoad();
 })();
