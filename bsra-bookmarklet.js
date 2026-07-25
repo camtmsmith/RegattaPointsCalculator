@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.3';
+var VERSION='v1.4';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -216,7 +216,7 @@ function bsraProg(p){var e=document.getElementById('bsra-prog');if(e)e.style.wid
 function bsraStatus(m){var e=document.getElementById('bsra-status');if(e)e.textContent=m;}
 function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
 // Human-paced, jittered delay so requests don't look automated.
-function politeDelay(){return 1700+Math.floor(Math.random()*1800);} // 1.7–3.5 s
+function politeDelay(){return 6000+Math.floor(Math.random()*5000);} // 6–11 s
 
 // ── Parser ────────────────────────────────────────────────────────────────────
 function parseResultHtml(html){
@@ -652,8 +652,8 @@ function renderExport(){
 
 // ── Fetch (slow, human-paced, keeps refreshing) ───────────────────────────────
 var pollTimer=null,polling=false,autoRefresh=true,lastChecked=null;
-var REFRESH_BASE_MS=60000;                                   // ~1 min between checks
-function refreshInterval(){return REFRESH_BASE_MS+Math.floor(Math.random()*30000);} // 60–90 s
+var REFRESH_BASE_MS=240000;                                  // ~4 min between checks
+function refreshInterval(){return REFRESH_BASE_MS+Math.floor(Math.random()*120000);} // 4–6 min
 
 function setChecked(){
   lastChecked=new Date();
@@ -676,7 +676,7 @@ async function fetchJSON(url,retries,delay){
 // Re-read the race list. Adds newly scheduled races, refreshes codes/times, and
 // recomputes "first occurrence" across the whole current schedule. Returns ids in order.
 async function refreshStatus(){
-  var sj=await fetchJSON('/regattas/'+RID+'/live/v1/status',3,3000);
+  var sj=await fetchJSON('/regattas/'+RID+'/live/v1/status',3,6000);
   var tmp=document.createElement('div');tmp.innerHTML=sj.race_list||'';
   var firstSeenCode={},present={};
   [].slice.call(tmp.querySelectorAll('tr[id^="tr_"]')).forEach(function(row){
@@ -717,7 +717,7 @@ async function pollCycle(manual){
     bsraStatus('Regatta #'+RID+' · checking '+pending.length+' race'+(pending.length>1?'s':'')+' for results…');
     for(var i=0;i<pending.length;i++){
       var id=pending[i];
-      try{var n=await loadRace(id,2,4000);if(n){bsraLog('New result · #'+id+' '+races[id].codes.join(','),'#3ecf8e');bsraRender();}}catch(e){}
+      try{var n=await loadRace(id,2,8000);if(n){bsraLog('New result · #'+id+' '+races[id].codes.join(','),'#3ecf8e');bsraRender();}}catch(e){}
       await sleep(politeDelay());
     }
   }else if(manual){bsraLog('No new results yet','#7d94a0');}
@@ -805,7 +805,7 @@ async function bsraLoad(){
     bsraProg(Math.round(i/total*80));
     bsraStatus('Regatta #'+RID+' · Loading ('+(i+1)+'/'+total+')… slow mode');
     try{
-      var n=await loadRace(id,2,4000);
+      var n=await loadRace(id,2,8000);
       if(n){
         var cls=classifyRace(races[id]);
         var scoring=cls&&cls.scores&&isScoringOccurrence(races[id]);
@@ -821,7 +821,7 @@ async function bsraLoad(){
     bsraLog('Retrying '+failed.length+' slowly…','#fb923c');await sleep(politeDelay()*2);
     for(var i=0;i<failed.length;i++){
       var id=failed[i];bsraStatus('Retrying ('+(i+1)+'/'+failed.length+')…');bsraProg(80+Math.round(i/failed.length*18));
-      try{var n=await loadRace(id,3,5000);if(n){bsraLog('#'+id+' retry OK','#3ecf8e');bsraRender();}}catch(e){bsraLog('#'+id+' retry failed','#e55');}
+      try{var n=await loadRace(id,3,10000);if(n){bsraLog('#'+id+' retry OK','#3ecf8e');bsraRender();}}catch(e){bsraLog('#'+id+' retry failed','#e55');}
       await sleep(politeDelay()*1.5);
     }
   }
@@ -829,7 +829,7 @@ async function bsraLoad(){
   bsraProg(100);setTimeout(function(){bsraProg(0);},1000);
   setChecked();
   bsraStatus('Regatta #'+RID+' · watching for new results');
-  bsraLog('Initial load complete · auto-refresh every ~1 min','#3ecf8e');bsraRender();
+  bsraLog('Initial load complete · auto-refresh every ~4–6 min','#3ecf8e');bsraRender();
   hookWebsocket();
   schedulePoll();
 }
