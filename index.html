@@ -19,7 +19,11 @@
   .bm-wrap{margin-top:11px;background:#0b1519;border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;}
   .bm-link{display:inline-block;background:var(--teal);color:#04141a;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:800;text-decoration:none;cursor:grab;border:2px dashed rgba(4,20,26,.35);transition:opacity .15s;}
   .bm-link:active{cursor:grabbing;}
+  .bm-link.disabled{opacity:.4;pointer-events:none;}
   .drag-hint{font-size:11px;color:var(--muted);margin-top:9px;}
+  .bm-status{font-size:11px;margin-top:7px;color:var(--muted);}
+  .bm-status.err{color:#e0a458;}
+  .bm-status.ok{color:var(--teal2);}
   .url-box{margin-top:11px;background:#071013;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:11px;font-family:ui-monospace,monospace;color:var(--muted);word-break:break-all;max-height:78px;overflow-y:auto;text-align:left;}
   .copy-btn{margin-top:9px;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;}
   .copy-btn:hover{border-color:var(--teal);}
@@ -59,8 +63,9 @@
     <div style="flex:1;">
       <div class="st">Drag this button to your bookmarks bar (or copy the code)</div>
       <div class="bm-wrap">
-        <a class="bm-link" id="bm" href="#">&#9733; BSRA Points</a>
+        <a class="bm-link disabled" id="bm" href="#">&#9733; BSRA Points</a>
         <div class="drag-hint">&larr; drag me up to the bookmarks bar</div>
+        <div class="bm-status" id="bm-status">Fetching latest version&hellip;</div>
         <div class="url-box" id="bm-code"></div>
         <button class="copy-btn" onclick="copyCode()">Copy bookmarklet code</button>
       </div>
@@ -91,7 +96,7 @@
 
   <div class="note">
     <b>How this stays up to date</b><br>
-    This bookmark never needs to be re-dragged again. When the tool is updated, only <code>bsra-bookmarklet.js</code> on GitHub changes &mdash; the bookmark always pulls whatever is there the moment you click it (a cache-busting timestamp is added automatically so you always get the latest version, not a stale cached copy).
+    Some results sites (like rowingmanager.com) block pages from loading scripts hosted elsewhere, so the bookmark now carries the whole tool inside it rather than fetching it fresh each click. This installer page always pulls the current version from GitHub when you open it &mdash; so if <code>bsra-bookmarklet.js</code> changes, just reload this page and drag the button again to pick up the update.
   </div>
 
   <div class="note">
@@ -120,23 +125,26 @@
 const SCRIPT_URL='https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js';
 const bm=document.getElementById('bm');
 const codeBox=document.getElementById('bm-code');
+const statusEl=document.getElementById('bm-status');
 
-function buildLoaderSource(url){
-  return "(function(){"
-    +"var u="+JSON.stringify(url)+";"
-    +"var s=document.createElement('script');"
-    +"s.src=u+(u.indexOf('?')>=0?'&':'?')+'_='+Date.now();"
-    +"s.onerror=function(){alert('BSRA bookmarklet: could not load the script from '+u+'. Please try again shortly.');};"
-    +"document.body.appendChild(s);"
-    +"})();";
+async function buildBookmarklet(){
+  try{
+    const res=await fetch(SCRIPT_URL+'?_='+Date.now(),{cache:'no-cache'});
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const code=await res.text();
+    const encoded='javascript:'+encodeURIComponent(code);
+    bm.href=encoded;
+    bm.classList.remove('disabled');
+    codeBox.textContent=encoded;
+    statusEl.textContent='Up to date \u2713 — drag the button below, or copy the code.';
+    statusEl.className='bm-status ok';
+  }catch(e){
+    statusEl.textContent='Could not fetch the latest version ('+e.message+'). Reload this page to try again.';
+    statusEl.className='bm-status err';
+    codeBox.textContent='Reload this page to build the bookmarklet…';
+  }
 }
-
-(function init(){
-  const src=buildLoaderSource(SCRIPT_URL);
-  const encoded='javascript:'+encodeURIComponent(src);
-  bm.href=encoded;
-  codeBox.textContent=encoded;
-})();
+buildBookmarklet();
 
 function toggleFallback(){
   const body=document.getElementById('fallback-body');
