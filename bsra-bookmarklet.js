@@ -434,7 +434,7 @@ function renderRaces(){
 }
 
 // ── Report export (static HTML matching the printed summary sheet) ────────────
-var SCHOOL_COLOR={AHS:'#f2b8a2',BGGS:'#bcd6f0',BSHS:'#cccdd9',LHC:'#bfe6d6',SOM:'#c3e3ac',STH:'#f6e6a6',STM:'#dcc6ec',SPLC:'#f7c4d6',STU:'#a9c9ea'};
+var SCHOOL_COLOR={AHS:'#a2daf1',BGGS:'#b2c4ee',BSHS:'#e9c9be',LHC:'#d4b4eb',SOM:'#95f1b9',STH:'#efdfab',STM:'#ffb25f',SPLC:'#fec0ff',STU:'#fb9ca0'};
 var META_KEY='bsra_export_meta_v1';
 function loadMeta(){
   var d={title:'BSRA Head of the River',date:new Date().toLocaleDateString('en-AU'),host:'',venue:'',regatta:REGATTA_NAME||''};
@@ -473,6 +473,13 @@ function reportSegments(){
   return a.segments.slice().sort(function(x,y){return crewSortRank(x.cls)-crewSortRank(y.cls);});
 }
 
+var TROPHY_LABEL_WIDTH=16; // % — shared across Aggregate Cup / Percentage / BSRA Trophy so school columns line up when stacked
+function trophyColGroup(){
+  var schoolW=((100-TROPHY_LABEL_WIDTH)/9).toFixed(3);
+  var h='<colgroup><col style="width:'+TROPHY_LABEL_WIDTH+'%">';
+  SCHOOLS.forEach(function(){h+='<col style="width:'+schoolW+'%">';});
+  return h+'</colgroup>';
+}
 function ltHeaderRow(cols,winner){ // light-theme table header row; winner col (if any) gets maroon bg
   var h='<tr><th style="border:1px solid #cfcfcf;background:#efefef;"></th>';
   cols.forEach(function(c){
@@ -489,7 +496,7 @@ function ltRow(label,cells,bold){
 function buildAggregateCupTable(a){
   var medal={};SCHOOLS.forEach(function(s){var r=a.rankOf[s];if(r>=1&&r<=3)medal[s]=MEDAL[r-1];});
   var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Aggregate Cup</div>';
-  h+='<table style="border-collapse:collapse;width:100%;">';
+  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup();
   h+='<tr><th style="border:1px solid #cfcfcf;background:#efefef;"></th>';
   SCHOOLS.forEach(function(s){h+='<th style="padding:6px 3px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:12px;">'+s+(medal[s]?' '+medal[s]:'')+'</th>';});
   h+='</tr>';
@@ -504,7 +511,7 @@ function buildAggregateCupTable(a){
 }
 function buildPercentageTable(a,pct,pctRank,pctWinner){
   var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Percentage Trophy</div>';
-  h+='<table style="border-collapse:collapse;width:100%;">'+ltHeaderRow(SCHOOLS,pctWinner);
+  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,pctWinner);
   h+=ltRow('Ranking',SCHOOLS.map(function(s){return s===a.cupWinner?'x':pctRank[s];}),true);
   h+=ltRow('Aggregate Points',SCHOOLS.map(function(s){return a.totals[s];}));
   h+=ltRow('# Students',SCHOOLS.map(function(s){return STUDENTS[s];}));
@@ -514,7 +521,7 @@ function buildPercentageTable(a,pct,pctRank,pctWinner){
 }
 function buildBsraTrophyTable(fe){
   var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">BSRA Trophy</div>';
-  h+='<table style="border-collapse:collapse;width:100%;">'+ltHeaderRow(SCHOOLS,fe?fe.winner:null);
+  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,fe?fe.winner:null);
   h+=ltRow('First Eight',SCHOOLS.map(function(s){var r=fe&&fe.rank[s];return '<span style="'+((fe&&s===fe.winner)?'font-weight:800;':'')+'">'+(r||'&mdash;')+'</span>';}));
   h+='</table>';
   return '<div class="block">'+h+'</div><div class="caption">Placing in the Open First Eight.</div>';
