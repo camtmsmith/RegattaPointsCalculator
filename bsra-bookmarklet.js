@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.4';
+var VERSION='v1.6';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -437,20 +437,57 @@ function renderRaces(){
 var SCHOOL_COLOR={AHS:'#a2daf1',BGGS:'#b2c4ee',BSHS:'#e9c9be',LHC:'#d4b4eb',SOM:'#95f1b9',STH:'#efdfab',STM:'#ffb25f',SPLC:'#fec0ff',STU:'#fb9ca0'};
 var META_KEY='bsra_export_meta_v1';
 function loadMeta(){
-  var d={title:'BSRA Head of the River',date:new Date().toLocaleDateString('en-AU'),host:'',venue:'',regatta:REGATTA_NAME||''};
+  var d={title:'BSRA Head of the River',date:'',host:'',venue:'',regatta:REGATTA_NAME||''};
   try{var raw=window.localStorage.getItem(META_KEY);if(raw){var s=JSON.parse(raw);for(var k in s){if(s[k])d[k]=s[k];}}}catch(e){}
   return d;
 }
 var EXPORT_META=loadMeta();
 function saveMeta(){try{window.localStorage.setItem(META_KEY,JSON.stringify(EXPORT_META));}catch(e){}}
+
+// Pull regatta name / date / venue off the regatta info page so the Export tab isn't
+// left blank — checks the current page first, then falls back to fetching the
+// regatta's main page (same site) if we're sitting on the live results page instead.
+function scrapeMetaFrom(root){
+  var out={};
+  var h2=root.querySelector('h2');
+  if(h2&&h2.textContent.trim())out.regatta=h2.textContent.trim();
+  [].slice.call(root.querySelectorAll('tr')).forEach(function(row){
+    var tds=row.querySelectorAll('td');if(tds.length<2)return;
+    var label=tds[0].textContent.trim().toLowerCase();
+    var val=tds[1].textContent.trim();if(!val)return;
+    if(label==='date:')out.date=val.split('(')[0].trim();
+    if(label==='venue:')out.venue=val.split('(')[0].trim();
+  });
+  return out;
+}
+async function autofillMeta(){
+  if(!RID)return;
+  var found=scrapeMetaFrom(document);
+  if(!found.date||!found.venue||!found.regatta){
+    try{
+      var res=await fetch('/regattas/'+RID,{cache:'no-cache'});
+      if(res.ok){
+        var tmp=document.createElement('div');
+        tmp.innerHTML=await res.text();
+        var f2=scrapeMetaFrom(tmp);
+        for(var k in f2)if(!found[k])found[k]=f2[k];
+      }
+    }catch(e){/* fetch may be blocked cross-origin — fields just stay editable manually */}
+  }
+  var changed=false;
+  if(found.date&&!EXPORT_META.date){EXPORT_META.date=found.date;changed=true;}
+  if(found.venue&&!EXPORT_META.venue){EXPORT_META.venue=found.venue;changed=true;}
+  if(found.regatta&&!EXPORT_META.regatta){EXPORT_META.regatta=found.regatta;changed=true;}
+  if(changed){saveMeta();if(currentTab==='export')bsraRender();}
+}
 function escHtml(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 var ORD_WORD={1:'First',2:'Second',3:'Third',4:'Fourth',5:'Fifth',6:'Sixth'};
 function ordNum(n){n=n||1;var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)%10]||s[v]||s[0]);}
 function yearNumOf(cls){return cls.cat==='GY8'?'8':cls.cat==='GY9'?'9':cls.cat==='GY10'?'10':null;}
 function crewLabel(cls){
-  if(cls.boat==='1x')return (cls.code||'').replace(/D\d+$/i,'').trim();
   var yr=yearNumOf(cls);
+  if(cls.boat==='1x')return (yr?'Year '+yr+' ':'Senior ')+'Single Scull';
   if(cls.boat==='4x+')return (yr?'Year '+yr:'Senior')+' '+ordNum(cls.div||1)+' Quad';
   if(cls.boat==='4+')return (yr?'Year '+yr+' ':'Senior ')+'Four';
   if(cls.boat==='8+'){
@@ -480,8 +517,8 @@ function trophyColGroup(){
   SCHOOLS.forEach(function(){h+='<col style="width:'+schoolW+'%">';});
   return h+'</colgroup>';
 }
-function ltHeaderRow(cols,winner){ // light-theme table header row; winner col (if any) gets maroon bg
-  var h='<tr><th style="border:1px solid #cfcfcf;background:#efefef;"></th>';
+function ltHeaderRow(cols,winner,label){ // light-theme table header row; winner col (if any) gets maroon bg; label fills the corner cell so the title sits in the same row as the school columns
+  var h='<tr><th style="padding:6px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:12px;text-align:left;white-space:nowrap;">'+(label?escHtml(label):'')+'</th>';
   cols.forEach(function(c){
     var win=winner&&c===winner;
     h+='<th style="padding:6px 3px;border:1px solid #cfcfcf;background:'+(win?'#7a1f27':'#3a3f45')+';color:#fff;font-size:12px;">'+escHtml(c)+'</th>';
@@ -495,9 +532,8 @@ function ltRow(label,cells,bold){
 }
 function buildAggregateCupTable(a){
   var medal={};SCHOOLS.forEach(function(s){var r=a.rankOf[s];if(r>=1&&r<=3)medal[s]=MEDAL[r-1];});
-  var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Aggregate Cup</div>';
-  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup();
-  h+='<tr><th style="border:1px solid #cfcfcf;background:#efefef;"></th>';
+  var h='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup();
+  h+='<tr><th style="padding:6px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:12px;text-align:left;white-space:nowrap;">Aggregate Cup</th>';
   SCHOOLS.forEach(function(s){h+='<th style="padding:6px 3px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:12px;">'+s+(medal[s]?' '+medal[s]:'')+'</th>';});
   h+='</tr>';
   h+=ltRow('Points',SCHOOLS.map(function(s){return a.totals[s];}),true);
@@ -507,24 +543,22 @@ function buildAggregateCupTable(a){
     h+=ltRow(labels[c],SCHOOLS.map(function(s){return a.years[c][s]+' <span style="color:#8a8a8a;font-size:10px;">['+a.yearRank[c][s]+']</span>';}));
   });
   h+='</table>';
-  return '<div class="block">'+h+'</div><div class="caption">Year rows show points with the school\'s rank <b>[in that year group]</b>. \uD83E\uDD47\uD83E\uDD48\uD83E\uDD49 mark the top three overall.</div>';
+  return '<div class="block">'+h+'</div>';
 }
 function buildPercentageTable(a,pct,pctRank,pctWinner){
-  var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Percentage Trophy</div>';
-  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,pctWinner);
+  var h='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,pctWinner,'Percentage Trophy');
   h+=ltRow('Ranking',SCHOOLS.map(function(s){return s===a.cupWinner?'x':pctRank[s];}),true);
   h+=ltRow('Aggregate Points',SCHOOLS.map(function(s){return a.totals[s];}));
   h+=ltRow('# Students',SCHOOLS.map(function(s){return STUDENTS[s];}));
   h+=ltRow('% Calculation',SCHOOLS.map(function(s){return s===a.cupWinner?'('+pct[s].toFixed(3)+')':pct[s].toFixed(3);}));
   h+='</table>';
-  return '<div class="block">'+h+'</div><div class="caption">Aggregate points &divide; enrolment. The Aggregate Cup winner (<b>'+a.cupWinner+'</b>) is excluded (shown as <b>x</b>, ratio in brackets).</div>';
+  return '<div class="block">'+h+'</div>';
 }
 function buildBsraTrophyTable(fe){
-  var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">BSRA Trophy</div>';
-  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,fe?fe.winner:null);
+  var h='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup()+ltHeaderRow(SCHOOLS,fe?fe.winner:null,'BSRA Trophy');
   h+=ltRow('First Eight',SCHOOLS.map(function(s){var r=fe&&fe.rank[s];return '<span style="'+((fe&&s===fe.winner)?'font-weight:800;':'')+'">'+(r||'&mdash;')+'</span>';}));
   h+='</table>';
-  return '<div class="block">'+h+'</div><div class="caption">Placing in the Open First Eight.</div>';
+  return '<div class="block">'+h+'</div>';
 }
 function buildRacingResultsTable(segs){
   var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Racing Results</div>';
@@ -553,7 +587,10 @@ function buildPointsAwardedTable(segs){
     h+='<tr><td style="padding:5px 8px;border:1px solid #d7d7d7;font-size:11px;white-space:nowrap;">'+escHtml(crewLabel(seg.cls))+'</td>';
     SCHOOLS.forEach(function(s){
       var sp=byS[s],pts=sp?(seg.cls.pts[sp]||0):0;
-      h+='<td style="padding:5px 3px;text-align:center;border:1px solid #d7d7d7;font-size:11px;color:'+(pts>0?'#20242a':'#c2c2c2')+';font-weight:'+(pts>0?'700':'400')+';">'+pts+'</td>';
+      var medalBg=(sp>=1&&sp<=3)?MEDALC[sp-1]:null;
+      var style='padding:5px 3px;text-align:center;border:1px solid #d7d7d7;font-size:11px;';
+      style+=medalBg?('background:'+medalBg+';color:#20242a;font-weight:800;'):('color:'+(pts>0?'#20242a':'#c2c2c2')+';font-weight:'+(pts>0?'700':'400')+';');
+      h+='<td style="'+style+'">'+pts+'</td>';
     });
     h+='</tr>';
   });
@@ -593,8 +630,8 @@ function buildReportHTML(){
     +'.cols{display:grid;grid-template-columns:1.42fr 1fr;gap:18px;align-items:start;}.col{display:flex;flex-direction:column;gap:16px;}'
     +'.block{border:1px solid #e2e2e2;border-radius:6px;overflow:hidden;}.item{display:flex;flex-direction:column;}'
     +'.caption{font-size:10px;color:#8a8a8a;margin-top:5px;line-height:1.45;}'
-    +'@media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;max-width:100%;padding:0;border-radius:0;}}'
-    +'@media(max-width:860px){.cols{grid-template-columns:1fr;}}</style></head><body><div class="sheet"><div class="cols">'
+    +'@media print{body{background:#fff;padding:0;}.sheet{box-shadow:none;max-width:100%;padding:0;border-radius:0;}.cols{grid-template-columns:1.42fr 1fr!important;}}'
+    +'@media screen and (max-width:860px){.cols{grid-template-columns:1fr;}}</style></head><body><div class="sheet"><div class="cols">'
     +'<div class="col">'
     +'<div class="item">'+buildAggregateCupTable(a)+'</div>'
     +'<div class="item">'+buildPercentageTable(a,pct,pctRank,pctWinner)+'</div>'
@@ -781,7 +818,9 @@ function showUpdateBanner(remoteVersion){
     '<div style="margin:0 14px 10px;background:rgba(43,179,192,.12);border:1px solid rgba(43,179,192,.35);border-radius:8px;padding:10px 30px 10px 12px;font-size:11px;color:#bfe6ea;line-height:1.6;position:relative;">'
     +'<button onclick="bsraDismissUpdate()" title="Dismiss" style="position:absolute;top:8px;right:8px;background:none;border:none;color:#7d94a0;font-size:15px;cursor:pointer;line-height:1;padding:0;">&times;</button>'
     +'<b style="color:#5fd3df;">Update available &mdash; '+remoteVersion+' (you have '+VERSION+')</b><br>'
-    +'This bookmark can\u2019t update itself on this site. To get the new version: open the installer page you used originally, reload it, and drag the button in again to replace this bookmark.'
+    +'This bookmark can\u2019t update itself on this site. Open the '
+    +'<a href="https://camtmsmith.github.io/RegattaPointsCalculator/" target="_blank" rel="noopener" style="color:#5fd3df;">installer page</a>'
+    +', reload it, and drag the button in again to replace this bookmark.'
     +'</div>';
 }
 window.bsraDismissUpdate=function(){
@@ -835,5 +874,6 @@ async function bsraLoad(){
 }
 checkForUpdate();
 setInterval(checkForUpdate,20*60*1000); // recheck roughly every 20 min in case a longer session outlasts an update
+autofillMeta();
 bsraLoad();
 })();
