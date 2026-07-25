@@ -19,21 +19,25 @@
   .bm-wrap{margin-top:11px;background:#0b1519;border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;}
   .bm-link{display:inline-block;background:var(--teal);color:#04141a;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:800;text-decoration:none;cursor:grab;border:2px dashed rgba(4,20,26,.35);transition:opacity .15s;}
   .bm-link:active{cursor:grabbing;}
-  .bm-link.disabled{opacity:.4;pointer-events:none;}
   .drag-hint{font-size:11px;color:var(--muted);margin-top:9px;}
   .url-box{margin-top:11px;background:#071013;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:11px;font-family:ui-monospace,monospace;color:var(--muted);word-break:break-all;max-height:78px;overflow-y:auto;text-align:left;}
   .copy-btn{margin-top:9px;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;}
   .copy-btn:hover{border-color:var(--teal);}
-  .src-input{width:100%;background:#071013;border:1px solid rgba(255,255,255,.16);border-radius:8px;color:var(--ink);font-size:12.5px;font-family:ui-monospace,monospace;padding:9px 11px;margin-top:2px;}
-  .src-input:focus{outline:none;border-color:var(--teal);}
-  .src-status{font-size:11px;margin-top:6px;line-height:1.5;}
-  .src-status.ok{color:var(--teal2);}
-  .src-status.warn{color:#e0a458;}
   .note{margin-top:22px;padding:15px 17px;background:rgba(43,179,192,.07);border:1px solid rgba(43,179,192,.22);border-radius:10px;font-size:12px;color:#bfe6ea;line-height:1.8;}
   .note b{color:var(--teal2);}
   .rules{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.85;}
   .rules b{color:var(--ink);font-weight:600;}
   .divider{height:1px;background:var(--line);margin:24px 0 22px;}
+  .fallback{margin-top:11px;}
+  .fallback-toggle{font-size:12px;color:var(--teal2);cursor:pointer;text-decoration:underline;text-align:center;user-select:none;}
+  .fallback-body{display:none;margin-top:10px;background:#0b1519;border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.7;}
+  .fallback-body.open{display:block;}
+  .fallback-item{margin-bottom:10px;}
+  .fallback-item:last-child{margin-bottom:0;}
+  .fallback-item b{color:var(--ink);}
+  .fallback-item ol{margin:6px 0 0;padding-left:20px;}
+  .fallback-item li{margin-bottom:4px;}
+  .fallback-item code{background:#071013;border-radius:4px;padding:1px 5px;color:var(--teal2);font-family:ui-monospace,monospace;}
 </style>
 </head>
 <body>
@@ -45,36 +49,40 @@
   <div class="step">
     <div class="sn">1</div>
     <div>
-      <div class="st">One-time setup &mdash; host the script somewhere public</div>
-      <div class="sd">The bookmark below is just a tiny loader; it fetches the real tool from a URL each time you click it. Put <code>bsra-bookmarklet.js</code> in a public GitHub repo (a new one, or a folder in an existing one), then open the file on GitHub and click <b>Raw</b> &mdash; paste that URL here.</div>
-      <input class="src-input" id="src-url" type="url" placeholder="https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js" autocomplete="off" spellcheck="false">
-      <div class="src-status" id="src-status"></div>
-    </div>
-  </div>
-
-  <div class="step">
-    <div class="sn">2</div>
-    <div>
       <div class="st">Open the live results page for the BSRA regatta</div>
       <div class="sd">Any year &mdash; the regatta ID is read from the page URL automatically.</div>
     </div>
   </div>
 
   <div class="step">
-    <div class="sn">3</div>
+    <div class="sn">2</div>
     <div style="flex:1;">
       <div class="st">Drag this button to your bookmarks bar (or copy the code)</div>
       <div class="bm-wrap">
-        <a class="bm-link disabled" id="bm" href="#">&#9733; BSRA Points</a>
+        <a class="bm-link" id="bm" href="#">&#9733; BSRA Points</a>
         <div class="drag-hint">&larr; drag me up to the bookmarks bar</div>
-        <div class="url-box" id="bm-code">Enter a script URL above first&hellip;</div>
+        <div class="url-box" id="bm-code"></div>
         <button class="copy-btn" onclick="copyCode()">Copy bookmarklet code</button>
+      </div>
+      <div class="fallback">
+        <div class="fallback-toggle" onclick="toggleFallback()" id="fallback-toggle">Drag not working? Add it manually &darr;</div>
+        <div class="fallback-body" id="fallback-body">
+          <div class="fallback-item"><b>Bookmarks bar hidden?</b> That's the most common cause &mdash; the button can only be dropped onto a visible bar. Show it with <b>Ctrl+Shift+B</b> (Windows/Linux) or <b>Cmd+Shift+B</b> (Mac), then try the drag again.</div>
+          <div class="fallback-item"><b>Still no luck (or on mobile)?</b> Add it by hand instead &mdash; drag-to-bookmark isn't supported on phones/tablets at all:
+            <ol>
+              <li>Click <b>Copy bookmarklet code</b> above.</li>
+              <li>Create a new bookmark any way your browser allows (e.g. right-click the bookmarks bar &rarr; <i>Add page&hellip;</i>, or star a page then edit it, or use the bookmark manager's <i>Add</i> button).</li>
+              <li>Set the bookmark's <b>name</b> to <code>BSRA Points</code>, and paste the copied code into the <b>URL</b> field (replacing whatever's there) &mdash; browsers sometimes trim a leading <code>javascript:</code> when pasted into a normal address bar, but the URL field of a bookmark editor keeps it intact.</li>
+              <li>Save. Clicking that bookmark on the results page works exactly the same as the drag-and-drop version.</li>
+            </ol>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="step">
-    <div class="sn">4</div>
+    <div class="sn">3</div>
     <div>
       <div class="st">Click the bookmark while the results page is open</div>
       <div class="sd">A panel opens top-right, loads every race slowly, then keeps checking for new results all day. Leave the page open and it updates itself. Click the bookmark again to close.</div>
@@ -82,7 +90,7 @@
   </div>
 
   <div class="note">
-    <b>Why this two-step setup</b><br>
+    <b>How this stays up to date</b><br>
     This bookmark never needs to be re-dragged again. When the tool is updated, only <code>bsra-bookmarklet.js</code> on GitHub changes &mdash; the bookmark always pulls whatever is there the moment you click it (a cache-busting timestamp is added automatically so you always get the latest version, not a stale cached copy).
   </div>
 
@@ -109,51 +117,33 @@
 </div>
 
 <script>
-const STORAGE_KEY='bsra_installer_src_url';
-const input=document.getElementById('src-url');
+const SCRIPT_URL='https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js';
 const bm=document.getElementById('bm');
 const codeBox=document.getElementById('bm-code');
-const statusEl=document.getElementById('src-status');
-
-const saved=localStorage.getItem(STORAGE_KEY);
-if(saved)input.value=saved;
 
 function buildLoaderSource(url){
   return "(function(){"
     +"var u="+JSON.stringify(url)+";"
-    +"if(!u){alert('BSRA bookmarklet: no script URL configured. Open the installer page and set one.');return;}"
     +"var s=document.createElement('script');"
     +"s.src=u+(u.indexOf('?')>=0?'&':'?')+'_='+Date.now();"
-    +"s.onerror=function(){alert('BSRA bookmarklet: could not load the script from '+u+'. Check the URL is correct, public, and ends in .js');};"
+    +"s.onerror=function(){alert('BSRA bookmarklet: could not load the script from '+u+'. Please try again shortly.');};"
     +"document.body.appendChild(s);"
     +"})();";
 }
 
-function refresh(){
-  const url=input.value.trim();
-  localStorage.setItem(STORAGE_KEY,url);
-  const looksValid=/^https:\/\/.+\.js(\?.*)?$/i.test(url);
-  if(!url){
-    bm.classList.add('disabled');
-    codeBox.textContent='Enter a script URL above first…';
-    statusEl.textContent='';
-  }else if(!looksValid){
-    bm.classList.add('disabled');
-    codeBox.textContent='Enter a script URL above first…';
-    statusEl.textContent='That doesn\u2019t look like a direct link to a .js file — use the "Raw" URL from GitHub.';
-    statusEl.className='src-status warn';
-  }else{
-    const src=buildLoaderSource(url);
-    const encoded='javascript:'+encodeURIComponent(src);
-    bm.href=encoded;
-    bm.classList.remove('disabled');
-    codeBox.textContent=encoded;
-    statusEl.textContent='Looks good — the bookmark below will always load from this URL.';
-    statusEl.className='src-status ok';
-  }
+(function init(){
+  const src=buildLoaderSource(SCRIPT_URL);
+  const encoded='javascript:'+encodeURIComponent(src);
+  bm.href=encoded;
+  codeBox.textContent=encoded;
+})();
+
+function toggleFallback(){
+  const body=document.getElementById('fallback-body');
+  const t=document.getElementById('fallback-toggle');
+  const open=body.classList.toggle('open');
+  t.textContent=open?'Drag not working? Add it manually \u2191':'Drag not working? Add it manually \u2193';
 }
-input.addEventListener('input',refresh);
-refresh();
 
 function copyCode(){
   navigator.clipboard.writeText(codeBox.textContent).then(()=>{
