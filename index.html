@@ -12,6 +12,7 @@
   .eyebrow{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:8px;}
   h1{font-size:25px;font-weight:800;margin:0 0 4px;letter-spacing:.3px;}
   .ver{font-size:12px;color:var(--muted);margin-bottom:26px;}
+  #ver-badge{display:inline-block;background:rgba(43,179,192,.14);border:1px solid rgba(43,179,192,.35);color:var(--teal2);border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:1px;}
   .step{display:flex;gap:15px;margin-bottom:20px;align-items:flex-start;}
   .sn{width:27px;height:27px;border-radius:50%;background:var(--teal);color:#04141a;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
   .st{font-size:14px;font-weight:600;margin-bottom:3px;}
@@ -48,7 +49,7 @@
 <div class="card">
   <div class="eyebrow">Brisbane Schoolgirls Rowing Association</div>
   <h1>BSRA Points Calculator</h1>
-  <div class="ver">Live scoreboard for the Aggregate Cup, Percentage Trophy &amp; First Eight</div>
+  <div class="ver">Live scoreboard for the Aggregate Cup, Percentage Trophy &amp; First Eight <span id="ver-badge"></span></div>
 
   <div class="step">
     <div class="sn">1</div>
@@ -136,6 +137,9 @@ async function buildBookmarklet(){
     bm.href=encoded;
     bm.classList.remove('disabled');
     codeBox.textContent=encoded;
+    const vMatch=code.match(/VERSION\s*=\s*['"]([^'"]+)['"]/);
+    const verBadge=document.getElementById('ver-badge');
+    if(vMatch&&verBadge)verBadge.textContent=vMatch[1];
     statusEl.textContent='Up to date \u2713 — drag the button below, or copy the code.';
     statusEl.className='bm-status ok';
   }catch(e){
