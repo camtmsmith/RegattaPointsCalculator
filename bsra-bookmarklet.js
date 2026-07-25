@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.8';
+var VERSION='v1.9';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -561,20 +561,20 @@ function buildBsraTrophyTable(fe){
   return '<div class="block">'+h+'</div>';
 }
 function buildResultsPointsTable(segs){
-  var h='<div style="background:#3a3f45;color:#fff;font-weight:700;font-size:13px;padding:7px 12px;border-radius:5px 5px 0 0;letter-spacing:.3px;">Racing Results &amp; Points Awarded</div>';
-  h+='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">';
+  var h='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">';
   h+='<colgroup><col style="width:12%">';
-  for(var i=0;i<9;i++)h+='<col style="width:4.3%">';
-  h+='<col style="width:1.5%">';
-  for(var i=0;i<9;i++)h+='<col style="width:4.7%">';
+  for(var i=0;i<9;i++)h+='<col style="width:4.2%">';
+  h+='<col style="width:3%">';
+  for(var i=0;i<9;i++)h+='<col style="width:4.6%">';
   h+='</colgroup>';
-  h+='<tr><th rowspan="2" style="padding:6px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:11px;text-align:left;vertical-align:bottom;">Crew</th>'
-    +'<th colspan="9" style="padding:4px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.4px;">Placing</th>'
-    +'<th style="border:none;background:transparent;"></th>'
-    +'<th colspan="9" style="padding:4px;border:1px solid #cfcfcf;background:#7a1f27;color:#fff;font-size:10px;text-transform:uppercase;letter-spacing:.4px;">Points Awarded</th></tr>';
-  h+='<tr>';
+  h+='<tr>'
+    +'<th colspan="10" style="padding:7px 12px;background:#3a3f45;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Racing Results</th>'
+    +'<th style="border:none;background:#fff;padding:0;"></th>'
+    +'<th colspan="9" style="padding:7px 12px;background:#7a1f27;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Points Awarded</th>'
+    +'</tr>';
+  h+='<tr><th style="padding:6px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:11px;text-align:left;">Crew</th>';
   for(var p=1;p<=9;p++)h+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:10px;">'+ordNum(p)+'</th>';
-  h+='<th style="border:none;background:transparent;"></th>';
+  h+='<th style="border:none;background:#fff;"></th>';
   SCHOOLS.forEach(function(s){h+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#7a1f27;color:#fff;font-size:10px;">'+s+'</th>';});
   h+='</tr>';
   segs.forEach(function(seg){
@@ -585,7 +585,7 @@ function buildResultsPointsTable(segs){
       if(r)h+='<td style="padding:4px 2px;text-align:center;border:1px solid #d7d7d7;font-size:10px;font-weight:700;background:'+SCHOOL_COLOR[r.school]+';color:#20242a;">'+r.school+'</td>';
       else h+='<td style="border:1px solid #e6e6e6;background:#fbfbfb;"></td>';
     }
-    h+='<td style="border:none;"></td>';
+    h+='<td style="border:none;background:#fff;"></td>';
     SCHOOLS.forEach(function(s){
       var sp=byS[s],pts=sp?(seg.cls.pts[sp]||0):0;
       var top3=sp>=1&&sp<=3;
@@ -597,7 +597,7 @@ function buildResultsPointsTable(segs){
     h+='</tr>';
   });
   h+='</table>';
-  return '<div class="block">'+h+'</div><div class="caption">Scoring order (best crew per school, re-ranked among the nine BSRA schools) with points for that placing alongside. Only the first running of each event scores; quads score Divisions&nbsp;1&ndash;4. Single 10&rarr;1 &middot; Quad &amp; Four 50&rarr;5 &middot; Eight 90&rarr;9.</div>';
+  return '<div class="block">'+h+'</div><div class="caption">Scoring order (best crew per school, re-ranked among the nine BSRA schools) on the left, points for that placing on the right. Only the first running of each event scores; quads score Divisions&nbsp;1&ndash;4. Single 10&rarr;1 &middot; Quad &amp; Four 50&rarr;5 &middot; Eight 90&rarr;9.</div>';
 }
 function buildReportHTML(){
   var m=EXPORT_META;
