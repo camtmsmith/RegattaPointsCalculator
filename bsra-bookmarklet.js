@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.12';
+var VERSION='v1.13';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -198,7 +198,6 @@ panel.innerHTML=
   +'<div id="bsra-log" style="font-size:10px;font-family:monospace;color:#7d94a0;max-height:48px;overflow-y:auto;line-height:1.6;"></div>'
   +'</div>';
 document.body.appendChild(panel);
-bsraRender();
 
 window.bsraTab=function(tab){
   currentTab=tab;
@@ -927,5 +926,6 @@ async function bsraLoad(){
 checkForUpdate();
 setInterval(checkForUpdate,20*60*1000); // recheck roughly every 20 min in case a longer session outlasts an update
 autofillMeta();
+bsraRender(); // show anything restored from a previous session immediately, before the fetch loop even starts
 bsraLoad();
 })();
