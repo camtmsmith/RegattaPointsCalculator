@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.10';
+var VERSION='v1.11';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -561,43 +561,48 @@ function buildBsraTrophyTable(fe){
   return '<div class="block">'+h+'</div>';
 }
 function buildResultsPointsTable(segs){
-  var h='<table style="border-collapse:collapse;width:100%;">';
-  h+='<colgroup><col>';
-  for(var i=0;i<9;i++)h+='<col style="width:32px">';
-  h+='<col style="width:14px">';
-  for(var i=0;i<9;i++)h+='<col style="width:32px">';
-  h+='</colgroup>';
-  h+='<tr>'
-    +'<th colspan="10" style="padding:7px 12px;background:#3a3f45;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Racing Results</th>'
-    +'<th style="border:none;background:#fff;padding:0;"></th>'
-    +'<th colspan="9" style="padding:7px 12px;background:#7a1f27;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Points Awarded</th>'
-    +'</tr>';
-  h+='<tr><th style="padding:6px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:11px;text-align:left;">Crew</th>';
-  for(var p=1;p<=9;p++)h+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:10px;">'+ordNum(p)+'</th>';
-  h+='<th style="border:none;background:#fff;"></th>';
-  SCHOOLS.forEach(function(s){h+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#7a1f27;color:#fff;font-size:10px;">'+s+'</th>';});
-  h+='</tr>';
+  var L='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">'+trophyColGroup();
+  L+='<tr><th colspan="10" style="padding:7px 12px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Racing Results</th></tr>';
+  L+='<tr><th style="padding:5px 8px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:10px;text-align:left;">Crew</th>';
+  for(var p=1;p<=9;p++)L+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#3a3f45;color:#fff;font-size:10px;">'+ordNum(p)+'</th>';
+  L+='</tr>';
   segs.forEach(function(seg){
-    var byS={};seg.scored.forEach(function(r){byS[r.school]=r.scoringPlace;});
-    h+='<tr><td style="padding:5px 8px;border:1px solid #d7d7d7;font-size:11px;white-space:nowrap;">'+escHtml(crewLabel(seg.cls))+'</td>';
+    L+='<tr><td style="padding:5px 8px;border:1px solid #d7d7d7;font-size:10px;white-space:nowrap;">'+escHtml(crewLabel(seg.cls))+'</td>';
     for(var i=0;i<9;i++){
       var r=seg.scored[i];
-      if(r)h+='<td style="padding:4px 2px;text-align:center;border:1px solid #d7d7d7;font-size:10px;font-weight:700;background:'+SCHOOL_COLOR[r.school]+';color:#20242a;">'+r.school+'</td>';
-      else h+='<td style="border:1px solid #e6e6e6;background:#fbfbfb;"></td>';
+      if(r)L+='<td style="padding:5px 2px;text-align:center;border:1px solid #d7d7d7;font-size:10px;font-weight:700;background:'+SCHOOL_COLOR[r.school]+';color:#20242a;">'+r.school+'</td>';
+      else L+='<td style="border:1px solid #e6e6e6;background:#fbfbfb;"></td>';
     }
-    h+='<td style="border:none;background:#fff;"></td>';
+    L+='</tr>';
+  });
+  L+='</table>';
+
+  var R='<table style="border-collapse:collapse;width:100%;table-layout:fixed;"><colgroup>';
+  for(var c=0;c<9;c++)R+='<col style="width:11.111%">';
+  R+='</colgroup>';
+  R+='<tr><th colspan="9" style="padding:7px 12px;border:1px solid #cfcfcf;background:#7a1f27;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Points Awarded</th></tr>';
+  R+='<tr>';
+  SCHOOLS.forEach(function(s){R+='<th style="padding:5px 2px;border:1px solid #cfcfcf;background:#7a1f27;color:#fff;font-size:10px;">'+s+'</th>';});
+  R+='</tr>';
+  segs.forEach(function(seg){
+    var byS={};seg.scored.forEach(function(r){byS[r.school]=r.scoringPlace;});
+    R+='<tr>';
     SCHOOLS.forEach(function(s){
       var sp=byS[s],pts=sp?(seg.cls.pts[sp]||0):0;
       var top3=sp>=1&&sp<=3;
-      var border=top3?('2px solid '+MEDALC[sp-1]):'1px solid #d7d7d7';
-      var style='padding:4px 2px;text-align:center;border:'+border+';font-size:10px;';
+      var bc=top3?MEDALC[sp-1]:'#d7d7d7';
+      var style='padding:5px 2px;text-align:center;border:1px solid '+bc+';font-size:10px;';
       style+=pts>0?('color:#20242a;font-weight:'+(top3?'800':'700')+';'):'color:#c2c2c2;font-weight:400;';
-      h+='<td style="'+style+'">'+pts+'</td>';
+      R+='<td style="'+style+'">'+pts+'</td>';
     });
-    h+='</tr>';
+    R+='</tr>';
   });
-  h+='</table>';
-  return '<div class="block">'+h+'</div><div class="caption">Scoring order (best crew per school, re-ranked among the nine BSRA schools) on the left, points for that placing on the right. Only the first running of each event scores; quads score Divisions&nbsp;1&ndash;4. Single 10&rarr;1 &middot; Quad &amp; Four 50&rarr;5 &middot; Eight 90&rarr;9.</div>';
+  R+='</table>';
+
+  return '<div style="display:grid;grid-template-columns:1.42fr 1fr;gap:18px;align-items:start;">'
+    +'<div class="block">'+L+'</div>'
+    +'<div class="block">'+R+'</div>'
+    +'</div><div class="caption">Scoring order (best crew per school, re-ranked among the nine BSRA schools) on the left, points for that placing on the right. Only the first running of each event scores; quads score Divisions&nbsp;1&ndash;4. Single 10&rarr;1 &middot; Quad &amp; Four 50&rarr;5 &middot; Eight 90&rarr;9.</div>';
 }
 function buildReportHTML(){
   var m=EXPORT_META;
