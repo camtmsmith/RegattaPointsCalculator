@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.9';
+var VERSION='v1.10';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -561,11 +561,11 @@ function buildBsraTrophyTable(fe){
   return '<div class="block">'+h+'</div>';
 }
 function buildResultsPointsTable(segs){
-  var h='<table style="border-collapse:collapse;width:100%;table-layout:fixed;">';
-  h+='<colgroup><col style="width:12%">';
-  for(var i=0;i<9;i++)h+='<col style="width:4.2%">';
-  h+='<col style="width:3%">';
-  for(var i=0;i<9;i++)h+='<col style="width:4.6%">';
+  var h='<table style="border-collapse:collapse;width:100%;">';
+  h+='<colgroup><col>';
+  for(var i=0;i<9;i++)h+='<col style="width:32px">';
+  h+='<col style="width:14px">';
+  for(var i=0;i<9;i++)h+='<col style="width:32px">';
   h+='</colgroup>';
   h+='<tr>'
     +'<th colspan="10" style="padding:7px 12px;background:#3a3f45;color:#fff;font-weight:700;font-size:13px;letter-spacing:.3px;text-align:left;">Racing Results</th>'
@@ -591,7 +591,7 @@ function buildResultsPointsTable(segs){
       var top3=sp>=1&&sp<=3;
       var border=top3?('2px solid '+MEDALC[sp-1]):'1px solid #d7d7d7';
       var style='padding:4px 2px;text-align:center;border:'+border+';font-size:10px;';
-      style+=pts>0?('background:'+SCHOOL_COLOR[s]+';color:#20242a;font-weight:'+(top3?'800':'700')+';'):'color:#c2c2c2;font-weight:400;';
+      style+=pts>0?('color:#20242a;font-weight:'+(top3?'800':'700')+';'):'color:#c2c2c2;font-weight:400;';
       h+='<td style="'+style+'">'+pts+'</td>';
     });
     h+='</tr>';
