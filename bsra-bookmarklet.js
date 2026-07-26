@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.11';
+var VERSION='v1.12';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -111,6 +111,19 @@ function rankMap(vals,exclude){
 }
 
 var races={};
+var RACES_KEY=RID?('bsra_races_'+RID+'_v1'):null;
+function loadRaces(){
+  if(!RACES_KEY)return;
+  try{
+    var raw=window.localStorage.getItem(RACES_KEY);
+    if(raw){var saved=JSON.parse(raw);for(var id in saved)races[id]=saved[id];}
+  }catch(e){}
+}
+function saveRaces(){
+  if(!RACES_KEY)return;
+  try{window.localStorage.setItem(RACES_KEY,JSON.stringify(races));}catch(e){}
+}
+loadRaces();
 var currentTab='cup';
 var TABS=[
   {id:'cup',     label:'Aggregate Cup'},
@@ -185,6 +198,7 @@ panel.innerHTML=
   +'<div id="bsra-log" style="font-size:10px;font-family:monospace;color:#7d94a0;max-height:48px;overflow-y:auto;line-height:1.6;"></div>'
   +'</div>';
 document.body.appendChild(panel);
+bsraRender();
 
 window.bsraTab=function(tab){
   currentTab=tab;
@@ -245,6 +259,7 @@ function parseResultHtml(html){
 var MEDAL=['🥇','🥈','🥉'],MEDALC=['#f5c842','#c8d2da','#d69355'];
 function rankColor(r){return (r>=1&&r<=3)?MEDALC[r-1]:'#5fd3df';}
 function bsraRender(){
+  saveRaces();
   if(currentTab==='cup')          renderCup();
   else if(currentTab==='trophies')renderTrophies();
   else if(currentTab==='schools') renderSchools();
@@ -388,6 +403,32 @@ function renderSchools(){
 }
 
 // ── Races tab ─────────────────────────────────────────────────────────────────
+window.bsraCopyRace=function(id){
+  var race=races[id];if(!race||!race.results)return;
+  var cls=classifyRace(race);
+  var list;
+  if(cls&&cls.scores&&isScoringOccurrence(race)){
+    list=eligibleScored(race.results).scored.map(function(r){return r.school;});
+  }else{
+    list=race.results.slice().sort(function(a,b){return a.place-b.place;})
+      .map(function(r){return abbrev(r.rawSchool)||r.rawSchool;});
+  }
+  var csv=list.join(',');
+  var flash=function(){
+    var btn=document.getElementById('bsra-copy-'+id);
+    if(btn){var orig=btn.textContent;btn.textContent='Copied!';setTimeout(function(){if(btn)btn.textContent=orig;},1200);}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(csv).then(flash).catch(function(){bsraFallbackCopy(csv);flash();});
+  }else{bsraFallbackCopy(csv);flash();}
+};
+function bsraFallbackCopy(text){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
 function renderRaces(){
   var el=document.getElementById('bsra-content');if(!el)return;
   var ids=Object.keys(races).sort(function(a,b){return+a-+b;});
@@ -408,7 +449,9 @@ function renderRaces(){
     h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasResults?'5px':'0')+';">';
     h+='<div><span style="font-weight:600;font-size:12px;color:'+(scoring?cls.color:'#9fb0b8')+';">'+codeStr+'</span>'
       +(reason?'<span style="font-size:10px;color:#7d94a0;margin-left:8px;">'+reason+'</span>':'')+'</div>';
-    h+='<span style="font-size:10px;color:#7d94a0;">#'+id+' · '+(race.time||'')+'</span></div>';
+    h+='<div style="display:flex;align-items:center;gap:6px;">'
+      +(hasResults?'<button id="bsra-copy-'+id+'" onclick="bsraCopyRace(\''+id+'\')" title="Copy placings as a comma list" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">Copy</button>':'')
+      +'<span style="font-size:10px;color:#7d94a0;">#'+id+' · '+(race.time||'')+'</span></div></div>';
     if(hasResults){
       if(scoring){
         var e=eligibleScored(race.results);var allRows=[];
@@ -844,11 +887,13 @@ async function bsraLoad(){
   try{ids=await refreshStatus();}
   catch(e){bsraLog('Race list failed: '+e.message,'#e55');bsraStatus('Error');return;}
   var total=ids.length,failed=[];
-  bsraLog('Found '+total+' races · loading slowly to stay polite','#3ecf8e');
+  var cached=ids.filter(function(id){return!needsResults(races[id]);}).length;
+  bsraLog('Found '+total+' races'+(cached?' · '+cached+' restored from a previous session':'')+' · loading slowly to stay polite','#3ecf8e');
 
   for(var i=0;i<ids.length;i++){
     var id=ids[i];
     bsraProg(Math.round(i/total*80));
+    if(!needsResults(races[id]))continue; // already have this one cached — no need to hit the site again
     bsraStatus('Regatta #'+RID+' · Loading ('+(i+1)+'/'+total+')… slow mode');
     try{
       var n=await loadRace(id,2,8000);
