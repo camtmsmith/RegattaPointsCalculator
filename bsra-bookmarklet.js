@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.13';
+var VERSION='v1.14';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -402,6 +402,16 @@ function renderSchools(){
 }
 
 // ── Races tab ─────────────────────────────────────────────────────────────────
+async function bsraRefreshRace(id){
+  var btn=document.getElementById('bsra-refetch-'+id);
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    var n=await loadRace(id,2,8000);
+    bsraLog('Refreshed #'+id+(n?' · '+n+' result rows':' · still no results'),'#3ecf8e');
+  }catch(e){bsraLog('Refresh failed for #'+id+': '+e.message,'#e55');}
+  bsraRender();
+}
+window.bsraRefreshRace=bsraRefreshRace;
 window.bsraCopyRace=function(id){
   var race=races[id];if(!race||!race.results)return;
   var cls=classifyRace(race);
@@ -412,7 +422,7 @@ window.bsraCopyRace=function(id){
     list=race.results.slice().sort(function(a,b){return a.place-b.place;})
       .map(function(r){return abbrev(r.rawSchool)||r.rawSchool;});
   }
-  var csv=list.join(',');
+  var csv=list.join('\t');
   var flash=function(){
     var btn=document.getElementById('bsra-copy-'+id);
     if(btn){var orig=btn.textContent;btn.textContent='Copied!';setTimeout(function(){if(btn)btn.textContent=orig;},1200);}
@@ -449,7 +459,8 @@ function renderRaces(){
     h+='<div><span style="font-weight:600;font-size:12px;color:'+(scoring?cls.color:'#9fb0b8')+';">'+codeStr+'</span>'
       +(reason?'<span style="font-size:10px;color:#7d94a0;margin-left:8px;">'+reason+'</span>':'')+'</div>';
     h+='<div style="display:flex;align-items:center;gap:6px;">'
-      +(hasResults?'<button id="bsra-copy-'+id+'" onclick="bsraCopyRace(\''+id+'\')" title="Copy placings as a comma list" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">Copy</button>':'')
+      +'<button id="bsra-refetch-'+id+'" onclick="bsraRefreshRace(\''+id+'\')" title="Re-check this race for results" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">&#8635;</button>'
+      +(hasResults?'<button id="bsra-copy-'+id+'" onclick="bsraCopyRace(\''+id+'\')" title="Copy placings — pastes across cells in Excel" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">Copy</button>':'')
       +'<span style="font-size:10px;color:#7d94a0;">#'+id+' · '+(race.time||'')+'</span></div></div>';
     if(hasResults){
       if(scoring){
