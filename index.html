@@ -3,38 +3,53 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BSRA Points Calculator</title>
+<title>Regatta Points Calculators</title>
 <style>
-  :root{--bg:#0b1519;--card:#13232b;--line:rgba(255,255,255,.12);--ink:#e6f0f2;--muted:#7d94a0;--teal:#2bb3c0;--teal2:#5fd3df;}
+  :root{--bg:#0b1519;--card:#13232b;--line:rgba(255,255,255,.12);--ink:#e6f0f2;--muted:#7d94a0;--teal:#2bb3c0;--teal2:#5fd3df;--blue:#4f6ef7;--blue2:#8fa0ff;}
   *{box-sizing:border-box;}
-  body{background:radial-gradient(1200px 600px at 80% -10%,rgba(43,179,192,.10),transparent),var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:44px 20px;margin:0;}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:34px 38px;max-width:660px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.45);}
-  .eyebrow{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:var(--teal);font-weight:700;margin-bottom:8px;}
+  body{background:radial-gradient(1200px 600px at 80% -10%,rgba(43,179,192,.10),transparent),var(--bg);color:var(--ink);font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:44px 20px;margin:0;}
+  .switcher{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:5px;margin-bottom:22px;}
+  .switcher button{background:none;border:none;color:var(--muted);font-family:inherit;font-size:13px;font-weight:700;padding:9px 20px;border-radius:8px;cursor:pointer;transition:background .15s,color .15s;}
+  .switcher button.active.bsra{background:var(--teal);color:#04141a;}
+  .switcher button.active.obc{background:var(--blue);color:#fff;}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:34px 38px;max-width:660px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.45);display:none;}
+  .card.active{display:block;}
+  .eyebrow{font-size:11px;letter-spacing:2.5px;text-transform:uppercase;font-weight:700;margin-bottom:8px;}
+  .bsra .eyebrow{color:var(--teal);} .obc .eyebrow{color:var(--blue2);}
   h1{font-size:25px;font-weight:800;margin:0 0 4px;letter-spacing:.3px;}
   .ver{font-size:12px;color:var(--muted);margin-bottom:26px;}
-  #ver-badge{display:inline-block;background:rgba(43,179,192,.14);border:1px solid rgba(43,179,192,.35);color:var(--teal2);border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:1px;}
+  .ver-badge{display:inline-block;border-radius:20px;padding:1px 9px;font-size:11px;font-weight:700;margin-left:4px;vertical-align:1px;}
+  .bsra .ver-badge{background:rgba(43,179,192,.14);border:1px solid rgba(43,179,192,.35);color:var(--teal2);}
+  .obc .ver-badge{background:rgba(79,110,247,.14);border:1px solid rgba(79,110,247,.35);color:var(--blue2);}
   .step{display:flex;gap:15px;margin-bottom:20px;align-items:flex-start;}
-  .sn{width:27px;height:27px;border-radius:50%;background:var(--teal);color:#04141a;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .sn{width:27px;height:27px;border-radius:50%;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .bsra .sn{background:var(--teal);color:#04141a;} .obc .sn{background:var(--blue);}
   .st{font-size:14px;font-weight:600;margin-bottom:3px;}
   .sd{font-size:13px;color:var(--muted);line-height:1.6;}
   .bm-wrap{margin-top:11px;background:#0b1519;border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;}
-  .bm-link{display:inline-block;background:var(--teal);color:#04141a;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:800;text-decoration:none;cursor:grab;border:2px dashed rgba(4,20,26,.35);transition:opacity .15s;}
+  .bm-link{display:inline-block;border-radius:9px;padding:11px 24px;font-size:14px;font-weight:800;text-decoration:none;cursor:grab;transition:opacity .15s;}
+  .bsra .bm-link{background:var(--teal);color:#04141a;border:2px dashed rgba(4,20,26,.35);}
+  .obc .bm-link{background:var(--blue);color:#fff;border:2px dashed rgba(255,255,255,.35);}
   .bm-link:active{cursor:grabbing;}
   .bm-link.disabled{opacity:.4;pointer-events:none;}
   .drag-hint{font-size:11px;color:var(--muted);margin-top:9px;}
   .bm-status{font-size:11px;margin-top:7px;color:var(--muted);}
   .bm-status.err{color:#e0a458;}
-  .bm-status.ok{color:var(--teal2);}
+  .bsra .bm-status.ok{color:var(--teal2);} .obc .bm-status.ok{color:var(--blue2);}
   .url-box{margin-top:11px;background:#071013;border:1px solid rgba(255,255,255,.07);border-radius:8px;padding:10px 12px;font-size:11px;font-family:ui-monospace,monospace;color:var(--muted);word-break:break-all;max-height:78px;overflow-y:auto;text-align:left;}
   .copy-btn{margin-top:9px;background:var(--card);border:1px solid var(--line);color:var(--ink);border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;}
-  .copy-btn:hover{border-color:var(--teal);}
-  .note{margin-top:22px;padding:15px 17px;background:rgba(43,179,192,.07);border:1px solid rgba(43,179,192,.22);border-radius:10px;font-size:12px;color:#bfe6ea;line-height:1.8;}
-  .note b{color:var(--teal2);}
+  .bsra .copy-btn:hover{border-color:var(--teal);} .obc .copy-btn:hover{border-color:var(--blue);}
+  .note{margin-top:22px;padding:15px 17px;border-radius:10px;font-size:12px;line-height:1.8;}
+  .bsra .note{background:rgba(43,179,192,.07);border:1px solid rgba(43,179,192,.22);color:#bfe6ea;}
+  .obc .note{background:rgba(79,110,247,.07);border:1px solid rgba(79,110,247,.22);color:#c3cdff;}
+  .note b{color:var(--ink);}
+  .bsra .note b{color:var(--teal2);} .obc .note b{color:var(--blue2);}
   .rules{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.85;}
   .rules b{color:var(--ink);font-weight:600;}
   .divider{height:1px;background:var(--line);margin:24px 0 22px;}
   .fallback{margin-top:11px;}
-  .fallback-toggle{font-size:12px;color:var(--teal2);cursor:pointer;text-decoration:underline;text-align:center;user-select:none;}
+  .fallback-toggle{font-size:12px;cursor:pointer;text-decoration:underline;text-align:center;user-select:none;}
+  .bsra .fallback-toggle{color:var(--teal2);} .obc .fallback-toggle{color:var(--blue2);}
   .fallback-body{display:none;margin-top:10px;background:#0b1519;border:1px solid var(--line);border-radius:10px;padding:14px 16px;font-size:12px;color:var(--muted);line-height:1.7;}
   .fallback-body.open{display:block;}
   .fallback-item{margin-bottom:10px;}
@@ -42,14 +57,22 @@
   .fallback-item b{color:var(--ink);}
   .fallback-item ol{margin:6px 0 0;padding-left:20px;}
   .fallback-item li{margin-bottom:4px;}
-  .fallback-item code{background:#071013;border-radius:4px;padding:1px 5px;color:var(--teal2);font-family:ui-monospace,monospace;}
+  .fallback-item code{background:#071013;border-radius:4px;padding:1px 5px;font-family:ui-monospace,monospace;}
+  .bsra .fallback-item code{color:var(--teal2);} .obc .fallback-item code{color:var(--blue2);}
 </style>
 </head>
 <body>
-<div class="card">
+
+<div class="switcher">
+  <button id="switch-bsra" class="active bsra" onclick="showCard('bsra')">BSRA Points</button>
+  <button id="switch-obc" class="obc" onclick="showCard('obc')">Old Boys' Cup</button>
+</div>
+
+<!-- ── BSRA card ─────────────────────────────────────────────────────────── -->
+<div class="card bsra active" id="card-bsra">
   <div class="eyebrow">Brisbane Schoolgirls Rowing Association</div>
   <h1>BSRA Points Calculator</h1>
-  <div class="ver">Live scoreboard for the Aggregate Cup, Percentage Trophy &amp; First Eight <span id="ver-badge"></span></div>
+  <div class="ver">Live scoreboard for the Aggregate Cup, Percentage Trophy &amp; First Eight <span class="ver-badge" id="ver-badge-bsra"></span></div>
 
   <div class="step">
     <div class="sn">1</div>
@@ -64,15 +87,15 @@
     <div style="flex:1;">
       <div class="st">Drag this button to your bookmarks bar (or copy the code)</div>
       <div class="bm-wrap">
-        <a class="bm-link disabled" id="bm" href="#">&#9733; BSRA Points</a>
+        <a class="bm-link disabled" id="bm-bsra" href="#">&#9733; BSRA Points</a>
         <div class="drag-hint">&larr; drag me up to the bookmarks bar</div>
-        <div class="bm-status" id="bm-status">Fetching latest version&hellip;</div>
-        <div class="url-box" id="bm-code"></div>
-        <button class="copy-btn" onclick="copyCode()">Copy bookmarklet code</button>
+        <div class="bm-status" id="bm-status-bsra">Fetching latest version&hellip;</div>
+        <div class="url-box" id="bm-code-bsra"></div>
+        <button class="copy-btn" onclick="copyCode('bsra')">Copy bookmarklet code</button>
       </div>
       <div class="fallback">
-        <div class="fallback-toggle" onclick="toggleFallback()" id="fallback-toggle">Drag not working? Add it manually &darr;</div>
-        <div class="fallback-body" id="fallback-body">
+        <div class="fallback-toggle" onclick="toggleFallback('bsra')" id="fallback-toggle-bsra">Drag not working? Add it manually &darr;</div>
+        <div class="fallback-body" id="fallback-body-bsra">
           <div class="fallback-item"><b>Bookmarks bar hidden?</b> That's the most common cause &mdash; the button can only be dropped onto a visible bar. Show it with <b>Ctrl+Shift+B</b> (Windows/Linux) or <b>Cmd+Shift+B</b> (Mac), then try the drag again.</div>
           <div class="fallback-item"><b>Still no luck (or on mobile)?</b> Add it by hand instead &mdash; drag-to-bookmark isn't supported on phones/tablets at all:
             <ol>
@@ -122,15 +145,103 @@
   </div>
 </div>
 
-<script>
-const SCRIPT_URL='https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js';
-const bm=document.getElementById('bm');
-const codeBox=document.getElementById('bm-code');
-const statusEl=document.getElementById('bm-status');
+<!-- ── Old Boys' Cup card ────────────────────────────────────────────────── -->
+<div class="card obc" id="card-obc">
+  <div class="eyebrow">GPS Head of the River</div>
+  <h1>🏆 Old Boys' Cup Calculator</h1>
+  <div class="ver">Live scoreboard for the Old Boys' Cup <span class="ver-badge" id="ver-badge-obc"></span></div>
 
-async function buildBookmarklet(){
+  <div class="step">
+    <div class="sn">1</div>
+    <div>
+      <div class="st">Open the GPS Head of the River live results page</div>
+      <div class="sd">Any year &mdash; the regatta ID is read from the page URL automatically.</div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="sn">2</div>
+    <div style="flex:1;">
+      <div class="st">Drag this button to your bookmarks bar (or copy the code)</div>
+      <div class="bm-wrap">
+        <a class="bm-link disabled" id="bm-obc" href="#">&#127942; Old Boys' Cup</a>
+        <div class="drag-hint">&larr; drag me up to the bookmarks bar</div>
+        <div class="bm-status" id="bm-status-obc">Fetching latest version&hellip;</div>
+        <div class="url-box" id="bm-code-obc"></div>
+        <button class="copy-btn" onclick="copyCode('obc')">Copy bookmarklet code</button>
+      </div>
+      <div class="fallback">
+        <div class="fallback-toggle" onclick="toggleFallback('obc')" id="fallback-toggle-obc">Drag not working? Add it manually &darr;</div>
+        <div class="fallback-body" id="fallback-body-obc">
+          <div class="fallback-item"><b>Bookmarks bar hidden?</b> That's the most common cause &mdash; the button can only be dropped onto a visible bar. Show it with <b>Ctrl+Shift+B</b> (Windows/Linux) or <b>Cmd+Shift+B</b> (Mac), then try the drag again.</div>
+          <div class="fallback-item"><b>Still no luck (or on mobile)?</b> Add it by hand instead &mdash; drag-to-bookmark isn't supported on phones/tablets at all:
+            <ol>
+              <li>Click <b>Copy bookmarklet code</b> above.</li>
+              <li>Create a new bookmark any way your browser allows (e.g. right-click the bookmarks bar &rarr; <i>Add page&hellip;</i>, or star a page then edit it, or use the bookmark manager's <i>Add</i> button).</li>
+              <li>Set the bookmark's <b>name</b> to <code>Old Boys' Cup</code>, and paste the copied code into the <b>URL</b> field (replacing whatever's there) &mdash; browsers sometimes trim a leading <code>javascript:</code> when pasted into a normal address bar, but the URL field of a bookmark editor keeps it intact.</li>
+              <li>Save. Clicking that bookmark on the results page works exactly the same as the drag-and-drop version.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="step">
+    <div class="sn">3</div>
+    <div>
+      <div class="st">Click the bookmark while the results page is open</div>
+      <div class="sd">A panel opens top-right, loads every race slowly, then keeps checking for new results all day. Leave the page open and it updates itself. Click the bookmark again to close.</div>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>How this stays up to date</b><br>
+    Some results sites block pages from loading scripts hosted elsewhere, so the bookmark carries the whole tool inside it rather than fetching it fresh each click. This installer page always pulls the current version from GitHub when you open it &mdash; so if <code>old-boys-bookmarklet.js</code> changes, just reload this page and drag the button again to pick up the update.
+  </div>
+
+  <div class="note">
+    <b>What it works out</b><br>
+    &bull; <b>Old Boys' Cup</b> &mdash; total points across Year&nbsp;10 Quad, Year&nbsp;11 Eight &amp; Open Eight, with per-school ranking.<br>
+    &bull; <b>Year 9 Quad</b> &mdash; scored and ranked separately, shown for reference, but does not count toward the Cup.<br>
+    &bull; <b>Export</b> &mdash; a printable summary report built live from whatever has scored so far.
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="rules">
+    <b>Scoring rules built in</b><br>
+    &bull; Points scale by boat: quad (Year&nbsp;10 &amp; Year&nbsp;9) <b>7&rarr;1</b>, eight (Year&nbsp;11 &amp; Open) <b>14&rarr;2</b>.<br>
+    &bull; Only the <b>first running</b> of each event scores; repeats (2nd round) do not.<br>
+    &bull; <b>Ineligible crews</b> are detected by lane gaps &mdash; isolated lanes separated from the main field are excluded automatically.<br>
+    &bull; <b>Keeps itself current</b> &mdash; after the first pass it re-checks the schedule every 4&ndash;6 minutes and loads results as they&rsquo;re published. A <b>Refresh now</b> button and an <b>Auto-refresh</b> toggle sit at the top of the panel, with a &ldquo;last checked&rdquo; time. Each race also has its own &#8635; button to re-check it individually.<br>
+    &bull; <b>Polite by design</b> &mdash; races are fetched one at a time with a randomised 6&ndash;11&nbsp;s gap, so the site only ever sees a slow trickle of requests.<br>
+    &bull; <b>Copy placings</b> &mdash; each race has a <b>Copy</b> button that copies that race's placings as a tab-separated list, ready to paste straight across cells in Excel.<br>
+    &bull; <b>Remembers your session</b> &mdash; results are cached in this browser per regatta, so an accidental click or closed tab doesn't lose your progress; reopening picks up right where you left off.
+  </div>
+</div>
+
+<script>
+const CONFIGS={
+  bsra:{scriptUrl:'https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/bsra-bookmarklet.js'},
+  obc:{scriptUrl:'https://raw.githubusercontent.com/camtmsmith/RegattaPointsCalculator/refs/heads/main/old-boys-bookmarklet.js'}
+};
+
+function showCard(which){
+  ['bsra','obc'].forEach(k=>{
+    document.getElementById('card-'+k).classList.toggle('active',k===which);
+    document.getElementById('switch-'+k).classList.toggle('active',k===which);
+  });
+  // remember the last-viewed tool so a reload lands back where you were
+  try{localStorage.setItem('regatta_installer_tab',which);}catch(e){}
+}
+
+async function buildBookmarklet(which){
+  const bm=document.getElementById('bm-'+which);
+  const codeBox=document.getElementById('bm-code-'+which);
+  const statusEl=document.getElementById('bm-status-'+which);
   try{
-    const res=await fetch(SCRIPT_URL+'?_='+Date.now(),{cache:'no-cache'});
+    const res=await fetch(CONFIGS[which].scriptUrl+'?_='+Date.now(),{cache:'no-cache'});
     if(!res.ok)throw new Error('HTTP '+res.status);
     const code=await res.text();
     const encoded='javascript:'+encodeURIComponent(code);
@@ -138,7 +249,7 @@ async function buildBookmarklet(){
     bm.classList.remove('disabled');
     codeBox.textContent=encoded;
     const vMatch=code.match(/VERSION\s*=\s*['"]([^'"]+)['"]/);
-    const verBadge=document.getElementById('ver-badge');
+    const verBadge=document.getElementById('ver-badge-'+which);
     if(vMatch&&verBadge)verBadge.textContent=vMatch[1];
     statusEl.textContent='Up to date \u2713 — drag the button below, or copy the code.';
     statusEl.className='bm-status ok';
@@ -148,21 +259,32 @@ async function buildBookmarklet(){
     codeBox.textContent='Reload this page to build the bookmarklet…';
   }
 }
-buildBookmarklet();
 
-function toggleFallback(){
-  const body=document.getElementById('fallback-body');
-  const t=document.getElementById('fallback-toggle');
+function toggleFallback(which){
+  const body=document.getElementById('fallback-body-'+which);
+  const t=document.getElementById('fallback-toggle-'+which);
   const open=body.classList.toggle('open');
   t.textContent=open?'Drag not working? Add it manually \u2191':'Drag not working? Add it manually \u2193';
 }
 
-function copyCode(){
+function copyCode(which){
+  const codeBox=document.getElementById('bm-code-'+which);
   navigator.clipboard.writeText(codeBox.textContent).then(()=>{
-    const b=document.querySelector('.copy-btn');b.textContent='Copied!';
-    setTimeout(()=>b.textContent='Copy bookmarklet code',2000);
+    const b=document.querySelector('#card-'+which+' .copy-btn');
+    const orig=b.textContent;b.textContent='Copied!';
+    setTimeout(()=>b.textContent=orig,2000);
   });
 }
+
+// Build both bookmarklets up front so switching tabs is instant either way.
+buildBookmarklet('bsra');
+buildBookmarklet('obc');
+
+// Land on whichever tool was last viewed, if any.
+try{
+  const last=localStorage.getItem('regatta_installer_tab');
+  if(last==='obc')showCard('obc');
+}catch(e){}
 </script>
 </body>
 </html>
