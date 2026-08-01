@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Old Boys' Cup — Calculator</title>
+<link rel="icon" type="image/x-icon" href="favicon.ico">
+<style>
+/* ── SHARED TOKENS ── */
+:root {
+  --font-ui:   Arial, sans-serif;
+  --font-mono: 'Courier New', monospace;
+  --bg: #0a0e1a;   --bg2: #111827;  --bg3: #1a2235;  --bg4: #1e2d45;
+  --border: #2a3f5f;  --border2: #3a5070;
+  --accent: #00b4d8;  --accent2: #0077a8;
+  --green: #22c55e;   --red: #ef4444;  --amber: #f59e0b;  --gold: #fbbf24;
+  --text: #c8d8e8;    --text2: #8aa0b8;  --text3: #5a7090;
+  --by10:  #7b95ff;
+  --by11:  #a78bfa;
+  --bo8:   #f5834a;
+  --by9:   #94a3b8;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; }
+body {
+  font-family: var(--font-ui); font-size: 13px;
+  background: var(--bg); color: var(--text);
+  display: flex; flex-direction: column; height: 100dvh; overflow: hidden;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 0 12px; display: flex; align-items: center; gap: 10px;
+  height: 48px; flex-shrink: 0;
+}
+.topbar-logo  { color: var(--accent); font-weight: 700; letter-spacing: 3px; font-size: 15px; }
+.topbar-sep   { color: var(--border2); }
+.topbar-sub   { color: var(--text3); font-size: 10px; letter-spacing: 2px; }
+.spacer       { flex: 1; }
+.conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); transition: background 0.3s; flex-shrink: 0; }
+.conn-dot.online { background: var(--green); }
+.conn-label { font-size: 9px; letter-spacing: 1px; color: var(--text3); }
+.btn-sm {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--text2);
+  padding: 5px 12px; font-family: inherit; font-size: 10px; letter-spacing: 1px;
+  cursor: pointer; transition: all 0.15s; white-space: nowrap; text-decoration: none;
+  display: inline-flex; align-items: center;
+}
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary {
+  background: var(--accent2); border: 1px solid var(--accent2); color: #fff;
+  padding: 10px 28px; font-family: inherit; font-size: 11px; letter-spacing: 2px;
+  cursor: pointer; font-weight: 700; transition: background 0.2s;
+}
+.btn-primary:hover { background: var(--accent); border-color: var(--accent); }
+
+/* ── SETUP ── */
+#setup-panel {
+  flex: 1; display: flex; align-items: center; justify-content: center;
+  padding: 24px 16px; overflow-y: auto;
+}
+.setup-card { background: var(--bg2); border: 1px solid var(--border); width: 100%; max-width: 480px; }
+.setup-card-header {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 14px 20px;
+}
+.setup-card-title { color: var(--gold); font-weight: 700; letter-spacing: 3px; font-size: 14px; }
+.setup-card-sub   { color: var(--text3); font-size: 10px; letter-spacing: 1px; margin-top: 3px; }
+.setup-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.setup-field label { display: block; font-size: 9px; letter-spacing: 2px; color: var(--text3); margin-bottom: 5px; }
+.setup-field input, .setup-field select {
+  width: 100%; background: var(--bg3); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 12px; font-family: inherit; font-size: 13px; outline: none;
+}
+.setup-field input:focus, .setup-field select:focus { border-color: var(--accent); }
+.setup-field .hint { font-size: 10px; color: var(--text3); margin-top: 4px; line-height: 1.5; }
+.setup-action {
+  padding: 14px 20px; border-top: 1px solid var(--border);
+  background: var(--bg3); display: flex; align-items: center; gap: 12px;
+}
+.setup-msg { font-size: 10px; color: var(--text2); letter-spacing: 1px; }
+
+/* ── MAIN ── */
+#main-panel { flex: 1; display: none; flex-direction: column; overflow: hidden; }
+
+/* TABS */
+.tab-bar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 0 12px; display: flex; align-items: center; gap: 4px; flex-shrink: 0;
+  height: 40px;
+}
+.tab-btn {
+  background: none; border: none; border-bottom: 2px solid transparent;
+  color: var(--text3); padding: 0 10px; font-family: inherit; font-size: 10px;
+  letter-spacing: 1px; cursor: pointer; height: 100%; transition: all 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+
+/* PROGRESS */
+.progress-bar {
+  height: 3px; background: var(--bg3); flex-shrink: 0;
+}
+.progress-fill {
+  height: 100%; background: var(--accent2); width: 0%; transition: width 0.4s;
+}
+
+/* STATUS BAR */
+.status-bar {
+  padding: 4px 12px; background: var(--bg3); border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0; flex-wrap: wrap;
+}
+.status-text { font-size: 10px; color: var(--text3); letter-spacing: 1px; flex: 1; }
+.log-line { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+
+/* CONTENT */
+.tab-content { flex: 1; overflow-y: auto; padding: 14px 16px; }
+
+/* ── STANDINGS GRID ── */
+.standings-grid {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 2px; overflow: hidden; margin-bottom: 14px;
+}
+.sg-row { display: flex; border-bottom: 1px solid var(--border); }
+.sg-row:last-child { border-bottom: none; }
+.sg-cell {
+  padding: 8px 10px; font-size: 12px; border-right: 1px solid var(--border);
+  display: flex; align-items: center;
+}
+.sg-cell:last-child { border-right: none; }
+.sg-label { width: 90px; flex-shrink: 0; font-size: 10px; color: var(--text3); letter-spacing: 1px; }
+.sg-school { flex: 1; justify-content: center; text-align: center; font-weight: 700; }
+.sg-pts    { flex: 1; justify-content: center; text-align: center; font-size: 16px; font-weight: 700; }
+.sg-rank   { flex: 1; justify-content: center; text-align: center; font-size: 11px; color: var(--text3); }
+.sg-hdr    { background: var(--bg3); font-size: 10px; font-weight: 700; }
+
+/* BREAKDOWN TABLE */
+.breakdown { background: var(--bg2); border: 1px solid var(--border); border-radius: 2px; overflow: hidden; }
+.breakdown-header { background: var(--bg3); font-size: 10px; color: var(--text3); letter-spacing: 1px; }
+.breakdown-row { display: flex; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.breakdown-row:last-child { border-bottom: none; }
+.breakdown-row:nth-child(even) { background: rgba(255,255,255,0.015); }
+.bd-race { width: 90px; flex-shrink: 0; padding: 6px 10px; font-size: 11px; font-weight: 600; }
+.bd-cell { flex: 1; padding: 6px 4px; text-align: center; font-size: 11px; }
+
+/* SCHOOL CARDS */
+.school-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  margin-bottom: 10px; overflow: hidden;
+}
+.school-card-header {
+  padding: 12px 14px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.school-name { font-weight: 700; font-size: 14px; }
+.school-full { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.school-pts-big { font-size: 22px; font-weight: 700; }
+.school-pts-label { font-size: 10px; color: var(--text3); }
+.school-breakdown-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  border-bottom: 1px solid var(--border);
+}
+.school-bd-cell { padding: 8px 6px; text-align: center; }
+.school-bd-cell:not(:last-child) { border-right: 1px solid rgba(255,255,255,0.06); }
+.school-bd-label { font-size: 10px; font-weight: 600; margin-bottom: 2px; }
+.school-bd-pts { font-size: 14px; font-weight: 700; }
+.school-races { padding: 8px 14px; display: flex; flex-wrap: wrap; gap: 4px; }
+.race-chip {
+  background: rgba(255,255,255,0.05); border-radius: 4px;
+  padding: 3px 8px; font-size: 11px;
+}
+
+/* RACE CARDS */
+.race-card {
+  background: var(--bg2); border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 2px; margin-bottom: 6px; padding: 8px 12px;
+}
+.race-card.not-scoring { opacity: 0.45; }
+.race-crews { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+.crew-chip {
+  background: rgba(255,255,255,0.05); border-radius: 3px;
+  padding: 3px 7px; font-size: 11px;
+}
+.crew-chip.ineligible { opacity: 0.3; border: 1px solid rgba(255,255,255,0.05); }
+
+/* NOTE BOX */
+.note-box {
+  font-size: 10px; color: var(--by10); line-height: 1.8; margin-bottom: 12px;
+  padding: 7px 11px; background: rgba(123,149,255,0.06);
+  border: 1px solid rgba(123,149,255,0.15);
+}
+
+/* MEDALS */
+.medal-1 { color: var(--gold); }
+.medal-2 { color: #9ca3af; }
+.medal-3 { color: #cd7c3a; }
+
+/* FLASH */
+#flash {
+  position: fixed; bottom: 20px; right: 20px;
+  background: #7f1d1d; color: #fca5a5;
+  padding: 10px 16px; font-size: 12px; z-index: 200;
+  border: 1px solid var(--red); display: none; max-width: 320px;
+}
+#flash.ok { background: #14532d; color: #86efac; border-color: var(--green); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <span class="topbar-logo">ROWTIME</span>
+  <span class="topbar-sep">|</span>
+  <span class="topbar-sub">OLD BOYS' CUP</span>
+  <div class="spacer"></div>
+  <span id="reg-label" style="font-size:10px;color:var(--text3);letter-spacing:1px"></span>
+  <div class="conn-dot" id="conn-dot"></div>
+  <span class="conn-label" id="conn-label">OFFLINE</span>
+  <button class="btn-sm" id="btn-refresh" onclick="refresh()" style="display:none;border-color:var(--accent2);color:var(--accent2)">&#8635; REFRESH</button>
+  <button class="btn-sm" onclick="showSetup()">&#9881; SETUP</button>
+  <a href="RowTime_App.html?menu=1" class="btn-sm" style="border-color:var(--border2);color:var(--text2)">&#8592; MENU</a>
+</div>
+
+<!-- SETUP PANEL -->
+<div id="setup-panel">
+  <div class="setup-card">
+    <div class="setup-card-header">
+      <div class="setup-card-title">&#127942; OLD BOYS' CUP</div>
+      <div class="setup-card-sub">GPS HEAD OF THE RIVER — POINTS CALCULATOR v13</div>
+    </div>
+    <div class="setup-body">
+      <div class="setup-field">
+        <label>REGATTA ID</label>
+        <select id="sel-regatta" style="width:100%">
+          <option value="">— Select or enter below —</option>
+        </select>
+        <div class="hint">Regattas found in ROWTIME localStorage (same browser). Password auto-filled.</div>
+      </div>
+      <div class="setup-field" style="display:flex;gap:10px">
+        <div style="flex:1">
+          <label>OR ENTER REGATTA ID</label>
+          <input type="number" id="inp-regatta" placeholder="e.g. 1059" min="1">
+        </div>
+        <div style="flex:1">
+          <label>PASSWORD</label>
+          <input type="text" id="inp-pass" placeholder="rowingmanager password">
+        </div>
+      </div>
+    </div>
+    <div class="setup-action">
+      <button class="btn-primary" onclick="doLoad()">&#9654;&nbsp; LOAD &amp; CALCULATE</button>
+      <span class="setup-msg" id="setup-msg"></span>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN PANEL -->
+<div id="main-panel">
+  <div class="tab-bar">
+    <button class="tab-btn active" id="tab-cup"     onclick="switchTab('cup')">&#127942; CUP</button>
+    <button class="tab-btn"        id="tab-by10"    onclick="switchTab('by10')">BY10</button>
+    <button class="tab-btn"        id="tab-by11"    onclick="switchTab('by11')">BY11</button>
+    <button class="tab-btn"        id="tab-bo8"     onclick="switchTab('bo8')">BO8</button>
+    <button class="tab-btn"        id="tab-by9"     onclick="switchTab('by9')">BY9 <span style="font-size:9px;color:var(--text3)">(grade)</span></button>
+    <button class="tab-btn"        id="tab-races"   onclick="switchTab('races')">RACES</button>
+    <button class="tab-btn"        id="tab-schools" onclick="switchTab('schools')">SCHOOLS</button>
+  </div>
+  <div class="progress-bar"><div class="progress-fill" id="prog-bar"></div></div>
+  <div class="status-bar">
+    <span class="status-text" id="status-text">Loading…</span>
+    <span class="log-line"    id="log-line"></span>
+  </div>
+  <div class="tab-content" id="tab-content"></div>
+</div>
+
+<div id="flash"></div>
+
+<script>
+'use strict';
+
+// ── SHARED CONSTANTS ─────────────────────────────────────────────────────────
+var DRAW_API_URL = 'https://timing.rowingmanager.com/races/draw';
+var RESULTS_URL  = 'https://timing.rowingmanager.com/results/rp7';
+var RW = {
+  pass:    function(id) { return 'rw_pass_' + id; },
+  db:      function(id) { return 'rw_db_'   + id; },
+  lastReg: 'rw_last_regatta',
+};
+var PREFS_KEY = 'rw_obc_prefs';
+
+// ── SCORING CONFIG ────────────────────────────────────────────────────────────
+var SCHOOL_MAP = [
+  ['BRISBANE BOYS COLLEGE','BBC'],  ['BRISBANE BOYS','BBC'],    ['BBC','BBC'],
+  ['BRISBANE GRAMMAR SCHOOL','BGS'],['BRISBANE GRAMMAR','BGS'], ['BGS','BGS'],
+  ['ACGS','ACGS'],['ANGLICAN CHURCH GRAMMAR','ACGS'],['CHURCHIE','ACGS'],
+  ['BRISBANE STATE HIGH SCHOOL','BSHS'],['BRISBANE STATE HIGH','BSHS'],['BRISBANE SHS','BSHS'],['BSHS','BSHS'],
+  ['GREGORY TERRACE','GT'],['TERRACE','GT'],['GT','GT'],
+  ['NUDGEE COLLEGE','NC'],['NUDGEE','NC'],["SAINT JOSEPH'S COLLEGE",'NC'],["ST JOSEPH'S",'NC'],['NC','NC'],
+  ['THE SOUTHPORT SCHOOL','TSS'],['SOUTHPORT','TSS'],['TSS','TSS'],
+];
+var SCHOOLS     = ['TSS','BGS','GT','ACGS','NC','BBC','BSHS'];
+var SCHOOL_FULL = {
+  TSS:'The Southport School', BGS:'Brisbane Grammar', GT:'Gregory Terrace',
+  ACGS:'ACGS', NC:'Nudgee College', BBC:"Brisbane Boys' College", BSHS:'Brisbane SHS'
+};
+
+var PTS_104 = {1:7,2:6,3:5,4:4,5:3,6:2,7:1};
+var PTS_8   = {1:14,2:12,3:10,4:8,5:6,6:4,7:2};
+var PTS_94  = {1:7,2:6,3:5,4:4,5:3,6:2,7:1};
+
+// Race type definitions — pat matched against eventCode (case-insensitive)
+var RACE_TYPES = [
+  {pat:'BY104x+', type:'by10', pts:PTS_104, cup:true,  color:'var(--by10)'},
+  {pat:'BY118+',  type:'by11', pts:PTS_8,   cup:true,  color:'var(--by11)'},
+  {pat:'BO8+',    type:'bo8',  pts:PTS_8,   cup:true,  color:'var(--bo8)'},
+  {pat:'BY94x+',  type:'by9',  pts:PTS_94,  cup:false, color:'var(--by9)'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+var regattaId   = null;
+var regPass     = null;
+var drawRaces   = [];    // raw draw entries from API
+var raceResults = {};    // raceNum → { place: n, school: abbr }[]
+var currentTab  = 'cup';
+var loading     = false;
+
+// ── INIT ─────────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', function() {
+  populateDropdown();
+  var prefs = loadPrefs();
+  // Try to auto-select last used regatta
+  var lastReg = localStorage.getItem(RW.lastReg) || prefs.regattaId;
+  if (lastReg) {
+    document.getElementById('sel-regatta').value = lastReg;
+    var storedPass = localStorage.getItem(RW.pass(lastReg));
+    if (storedPass) document.getElementById('inp-pass').value = storedPass;
+    document.getElementById('inp-regatta').value = lastReg;
+    // Auto-load if we have credentials
+    if (storedPass) {
+      setTimeout(doLoad, 200);
+    }
+  }
+});
+
+function loadPrefs() {
+  try { return JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch(e) { return {}; }
+}
+function savePrefs() {
+  localStorage.setItem(PREFS_KEY, JSON.stringify({ regattaId: regattaId }));
+}
+
+function populateDropdown() {
+  var sel = document.getElementById('sel-regatta');
+  var found = [];
+  for (var i = 0; i < localStorage.length; i++) {
+    var key = localStorage.key(i);
+    if (key && key.startsWith('rw_pass_')) {
+      var id = key.replace('rw_pass_', '');
+      var raw = localStorage.getItem(RW.db(id));
+      var title = '';
+      if (raw) { try { title = (JSON.parse(raw).drawTitle || ''); } catch(e) {} }
+      found.push({ id: id, title: title });
+    }
+  }
+  found.sort(function(a, b) { return parseInt(b.id) - parseInt(a.id); });
+  found.forEach(function(r) {
+    var opt = document.createElement('option');
+    opt.value = r.id;
+    opt.textContent = 'REG ' + r.id + (r.title ? ' — ' + r.title : '');
+    sel.appendChild(opt);
+  });
+  // On dropdown change, fill in the pass and manual ID fields
+  document.getElementById('sel-regatta').addEventListener('change', function() {
+    var id = this.value;
+    if (!id) return;
+    document.getElementById('inp-regatta').value = id;
+    var p = localStorage.getItem(RW.pass(id)) || '';
+    document.getElementById('inp-pass').value = p;
+  });
+}
+
+// ── HELPERS ──────────────────────────────────────────────────────────────────
+function abbrev(raw) {
+  if (!raw) return null;
+  var u = raw.toUpperCase().trim().replace(/\s+\d+$/, '').trim();
+  for (var i = 0; i < SCHOOL_MAP.length; i++) {
+    if (u === SCHOOL_MAP[i][0] || u.indexOf(SCHOOL_MAP[i][0]) === 0)
+      return SCHOOL_MAP[i][1];
+  }
+  return null;
+}
+
+function classifyRace(eventCode) {
+  if (!eventCode) return null;
+  var u = eventCode.toUpperCase();
+  for (var i = 0; i < RACE_TYPES.length; i++) {
+    if (u.indexOf(RACE_TYPES[i].pat.toUpperCase()) >= 0) return RACE_TYPES[i];
+  }
+  return null;
+}
+
+// Lane gap detection — same algorithm as the bookmarklet
+function isolatedLanes(rows) {
+  var lanes = rows.map(function(r) { return r.lane; }).filter(function(l) { return l > 0; });
+  if (lanes.length < 2) return new Set();
+  lanes.sort(function(a, b) { return a - b; });
+  var gapIdx = null;
+  for (var i = 1; i < lanes.length; i++) {
+    if (lanes[i] - lanes[i-1] > 1) { gapIdx = i; break; }
+  }
+  if (gapIdx === null) return new Set();
+  var isolated = lanes.slice(0, gapIdx);
+  if (isolated.length >= lanes.slice(gapIdx).length) return new Set();
+  var s = new Set();
+  isolated.forEach(function(l) { s.add(l); });
+  return s;
+}
+
+// ── API FETCH ─────────────────────────────────────────────────────────────────
+async function apiFetch(url) {
+  var resp = await fetch(url, { cache: 'no-store' });
+  if (resp.status === 404) return null;
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return resp.json();
+}
+
+async function fetchDraw(regId, pass) {
+  var all = [];
+  var title = '';
+  for (var day = 1; day <= 30; day++) {
+    var url = DRAW_API_URL + '?regattaId=' + encodeURIComponent(regId) +
+              ';password=' + encodeURIComponent(pass) + ';day=' + day;
+    var data = await apiFetch(url);
+    if (!data) break;
+    var races = Array.isArray(data) ? data : (data['lane draw'] || data.races || []);
+    if (day > 1 && !races.length) break;
+    if (data.title) title = data.title;
+    all = all.concat(races);
+    log('Day ' + day + ': ' + races.length + ' races');
+    if (races.length === 0) break;
+  }
+  return { races: all, title: title };
+}
+
+async function fetchRaceResults(regId, pass, raceNum) {
+  var url = RESULTS_URL + '?regattaId=' + encodeURIComponent(regId) +
+            ';password=' + encodeURIComponent(pass) + ';race=' + raceNum;
+  return apiFetch(url);
+}
+
+// ── SETUP / LOAD ─────────────────────────────────────────────────────────────
+function showSetup() {
+  document.getElementById('setup-panel').style.display = 'flex';
+  document.getElementById('main-panel').style.display  = 'none';
+  document.getElementById('btn-refresh').style.display = 'none';
+}
+
+async function doLoad() {
+  if (loading) return;
+  // Resolve credentials
+  var selVal = document.getElementById('sel-regatta').value;
+  var manId  = document.getElementById('inp-regatta').value.trim();
+  var manPass= document.getElementById('inp-pass').value.trim();
+
+  var id   = selVal || manId;
+  var pass = manPass || (id ? localStorage.getItem(RW.pass(id)) : '');
+
+  if (!id)   { setSetupMsg('Enter a regatta ID'); return; }
+  if (!pass) { setSetupMsg('Enter the password');  return; }
+
+  regattaId = id;
+  regPass   = pass;
+
+  // Switch to main panel
+  document.getElementById('setup-panel').style.display = 'none';
+  document.getElementById('main-panel').style.display  = 'flex';
+  document.getElementById('main-panel').style.flexDirection = 'column';
+  document.getElementById('btn-refresh').style.display = 'inline-flex';
+  document.getElementById('reg-label').textContent = 'REG ' + id;
+
+  savePrefs();
+  await loadAll();
+}
+
+function setSetupMsg(m) { document.getElementById('setup-msg').textContent = m; }
+
+async function refresh() {
+  if (loading) return;
+  raceResults = {};
+  await loadAll();
+}
+
+// ── MAIN LOAD LOOP ────────────────────────────────────────────────────────────
+async function loadAll() {
+  loading = true;
+  progress(0);
+  status('Fetching draw for REG ' + regattaId + '…');
+  setConnStatus(null);
+
+  try {
+    // 1. Fetch draw
+    var drawData = await fetchDraw(regattaId, regPass);
+    if (!drawData.races.length) {
+      status('No races found — check regatta ID and password');
+      loading = false;
+      return;
+    }
+    setConnStatus(true);
+    if (drawData.title) {
+      document.getElementById('reg-label').textContent = 'REG ' + regattaId + ' — ' + drawData.title;
+    }
+    localStorage.setItem(RW.pass(regattaId), regPass);
+
+    // 2. Filter to relevant race types and mark first occurrences
+    var seenEventCode = {};
+    drawRaces = drawData.races
+      .filter(function(r) { return r.status !== 'Cancelled' && r.status !== 'Non-Event'; })
+      .map(function(r) {
+        var ec = (r.eventCode || '').trim();
+        var rt = classifyRace(ec);
+        var isFirst = false;
+        if (rt) {
+          var key = ec.toUpperCase();
+          if (!seenEventCode[key]) { seenEventCode[key] = true; isFirst = true; }
+        }
+        // Build lane map from API lanes array
+        var lanes = {};
+        (r.lanes || []).forEach(function(ln) {
+          if (ln.laneNum) {
+            lanes[ln.laneNum] = {
+              name:    ln.crewName || '',
+              status:  (ln.status || '').toUpperCase(),
+              scratch: (ln.status || '').toUpperCase() === 'SCR'
+            };
+          }
+        });
+        return {
+          raceNum:    parseInt(r.displayNumber),
+          raceId:     r.raceId,
+          eventCode:  ec,
+          raceType:   rt,
+          isScoring:  !!(rt && isFirst),
+          isFirst:    isFirst,
+          lanes:      lanes,
+          status:     r.status || '',
+          time:       (r.scheduledStart || '').substring(11,16) || '',
+        };
+      });
+
+    // Only fetch results for scoring races (and a few others for the Races tab)
+    var racesToFetch = drawRaces.filter(function(r) { return r.raceType; });
+    var total = racesToFetch.length;
+    var failed = [];
+
+    log('Draw: ' + drawRaces.length + ' races, ' + total + ' to score');
+    status('Loading results (' + total + ' races)…');
+
+    for (var i = 0; i < racesToFetch.length; i++) {
+      var race = racesToFetch[i];
+      progress(Math.round((i / total) * 85));
+      status('Results: ' + race.eventCode + ' (' + (i+1) + '/' + total + ')');
+      try {
+        var data = await fetchRaceResults(regattaId, regPass, race.raceNum);
+        raceResults[race.raceNum] = parseResults(data, race);
+        if (raceResults[race.raceNum].length) {
+          log(race.eventCode + ' — ' + raceResults[race.raceNum].length + ' finishers');
+          render();
+        }
+      } catch(e) {
+        failed.push(race);
+        raceResults[race.raceNum] = [];
+      }
+      await sleep(300);
+    }
+
+    // Retry failed
+    if (failed.length) {
+      log('Retrying ' + failed.length + ' failed races…');
+      await sleep(2000);
+      for (var i = 0; i < failed.length; i++) {
+        var race = failed[i];
+        progress(85 + Math.round((i / failed.length) * 13));
+        try {
+          var data = await fetchRaceResults(regattaId, regPass, race.raceNum);
+          raceResults[race.raceNum] = parseResults(data, race);
+          if (raceResults[race.raceNum].length) { log(race.eventCode + ' retry OK'); render(); }
+        } catch(e) { log(race.eventCode + ' retry failed'); }
+        await sleep(1000);
+      }
+    }
+
+    progress(100);
+    setTimeout(function() { progress(0); }, 800);
+    status('REG ' + regattaId + ' — loaded · ' + racesToFetch.length + ' races');
+    log('Complete');
+    render();
+
+  } catch(e) {
+    setConnStatus(false);
+    status('Error: ' + e.message);
+    log('Load failed: ' + e.message);
+  }
+  loading = false;
+}
+
+// ── PARSE RESULTS FROM RP7 ────────────────────────────────────────────────────
+// Returns array of { lane, school, abbr, place, time } sorted by finish place.
+// DNS/SCR/DNF entries are included but flagged; they don't get a place.
+function parseResults(data, race) {
+  if (!data) return [];
+  var entries = (data.external || []).concat(data.results || []);
+  var finishes = [];
+
+  entries.forEach(function(e) {
+    // location 4 = Finish
+    var loc = typeof e.location === 'number' ? e.location : parseInt(e.location);
+    if (isNaN(loc)) {
+      var ls = String(e.location || '').toLowerCase();
+      loc = ls === 'finish' ? 4 : ls === 'start' ? 0 : -1;
+    }
+    if (loc !== 4) return;
+
+    var lane = parseInt(e.boatNum);
+    if (isNaN(lane) || lane <= 0) return;
+
+    var resultCode = (e.resultCode || '').toUpperCase();
+    var noTime = ['DNS','SCR','DNF','DSQ','RMV','EXC'].indexOf(resultCode) >= 0;
+    if (noTime) return; // exclude non-finishers from place calculation
+
+    var ms = e.millisecs || 0;
+    // Get crew name from draw lane map
+    var laneInfo = race.lanes[lane] || {};
+    var crewName = laneInfo.name || (e.crewName || '');
+
+    finishes.push({
+      lane:     lane,
+      ms:       ms,
+      crew:     crewName,
+      abbr:     abbrev(crewName),
+      scratch:  laneInfo.scratch || false,
+    });
+  });
+
+  // Sort by time
+  finishes.sort(function(a, b) { return a.ms - b.ms; });
+  finishes.forEach(function(f, i) { f.place = i + 1; });
+  return finishes;
+}
+
+// ── COMPUTE TOTALS ────────────────────────────────────────────────────────────
+function computeTotals(filterFn) {
+  var totals = {};
+  SCHOOLS.forEach(function(s) { totals[s] = 0; });
+  var segments = [];
+
+  drawRaces.forEach(function(race) {
+    if (!race.isScoring || !race.raceType) return;
+    if (!filterFn(race.raceType)) return;
+    var results = raceResults[race.raceNum] || [];
+    if (!results.length) return;
+
+    var ineligLanes = isolatedLanes(results);
+    var eligible = results.filter(function(r) { return !ineligLanes.has(r.lane); });
+    var ineligible = results.filter(function(r) { return ineligLanes.has(r.lane); });
+
+    // Re-rank eligible
+    var best = {};
+    eligible.forEach(function(r) {
+      if (!r.abbr) return;
+      if (best[r.abbr] === undefined || r.place < best[r.abbr].place)
+        best[r.abbr] = r;
+    });
+    var scored = Object.keys(best).map(function(s) {
+      return { school: s, place: best[s].place, crew: best[s].crew };
+    }).sort(function(a, b) { return a.place - b.place; });
+    scored.forEach(function(r, i) { r.scoringPlace = i + 1; });
+
+    if (!scored.length) return;
+
+    var seg = {
+      race:      race,
+      rt:        race.raceType,
+      scored:    scored,
+      ineligible: ineligible,
+      ineligLanes: ineligLanes,
+    };
+    segments.push(seg);
+
+    scored.forEach(function(r) {
+      var pts = race.raceType.pts[r.scoringPlace] || 0;
+      if (totals[r.school] !== undefined) totals[r.school] += pts;
+    });
+  });
+
+  return { totals: totals, segments: segments };
+}
+
+// ── TAB RENDERING ─────────────────────────────────────────────────────────────
+var TABS = ['cup','by10','by11','bo8','by9','races','schools'];
+
+function switchTab(tab) {
+  currentTab = tab;
+  TABS.forEach(function(t) {
+    var b = document.getElementById('tab-' + t);
+    if (b) b.classList.toggle('active', t === tab);
+  });
+  render();
+}
+
+function render() {
+  if (currentTab === 'races')   renderRaces();
+  else if (currentTab === 'schools') renderSchools();
+  else renderStandings();
+}
+
+// ── STANDINGS ─────────────────────────────────────────────────────────────────
+function renderStandings() {
+  var filterFn, note;
+  if      (currentTab === 'cup')  { filterFn = function(rt) { return rt.cup; }; note = null; }
+  else if (currentTab === 'by10') { filterFn = function(rt) { return rt.type === 'by10'; }; note = 'Year 10 Quad — included in Cup total'; }
+  else if (currentTab === 'by11') { filterFn = function(rt) { return rt.type === 'by11'; }; note = 'Year 11 Eight — included in Cup total'; }
+  else if (currentTab === 'bo8')  { filterFn = function(rt) { return rt.type === 'bo8';  }; note = 'Open Eight — included in Cup total'; }
+  else if (currentTab === 'by9')  { filterFn = function(rt) { return rt.type === 'by9';  }; note = 'Year 9 Quad — grade ranking only, not in Cup total'; }
+
+  var r = computeTotals(filterFn);
+  var sorted = SCHOOLS.slice().sort(function(a, b) { return r.totals[b] - r.totals[a]; });
+
+  var medals = ['🥇','🥈','🥉'];
+  var ptColors = ['var(--gold)','#9ca3af','#cd8b50'];
+
+  var h = '';
+  if (note) h += '<div class="note-box">' + note + '</div>';
+
+  // Standings grid
+  var colW = '90px ' + sorted.map(function() { return '1fr'; }).join(' ');
+  h += '<div class="standings-grid" style="display:grid;grid-template-columns:' + colW + '">';
+
+  // Header row
+  h += '<div class="sg-cell sg-label sg-hdr"></div>';
+  sorted.forEach(function(s, i) {
+    h += '<div class="sg-cell sg-school sg-hdr" style="color:' + (i < 3 ? ptColors[i] : 'var(--text)') + ';flex-direction:column;gap:2px">' +
+         (i < 3 ? '<span>' + medals[i] + '</span>' : '') + s + '</div>';
+  });
+
+  // Points row
+  h += '<div class="sg-cell sg-label" style="font-size:10px;color:var(--text3);letter-spacing:1px">POINTS</div>';
+  sorted.forEach(function(s, i) {
+    var pts = r.totals[s] || 0;
+    h += '<div class="sg-cell sg-pts" style="color:' + (i < 3 && pts > 0 ? ptColors[i] : pts > 0 ? 'var(--by10)' : 'var(--text3)') + '">' + pts + '</div>';
+  });
+
+  // Rank row
+  h += '<div class="sg-cell sg-label" style="font-size:10px;color:var(--text3)">RANK</div>';
+  sorted.forEach(function(s, i) {
+    h += '<div class="sg-cell sg-rank">' + (r.totals[s] > 0 ? i + 1 : '—') + '</div>';
+  });
+  h += '</div>';
+
+  // Breakdown table
+  if (!r.segments.length) {
+    h += '<div style="text-align:center;color:var(--text3);padding:20px;font-size:11px">No results yet</div>';
+  } else {
+    h += '<div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Race breakdown</div>';
+    h += '<div class="breakdown">';
+
+    // Header
+    h += '<div class="breakdown-row breakdown-header">';
+    h += '<div class="bd-race" style="padding:6px 10px;font-size:10px">RACE</div>';
+    sorted.forEach(function(s) {
+      h += '<div class="bd-cell" style="font-size:10px;font-weight:700">' + s + '</div>';
+    });
+    h += '</div>';
+
+    r.segments.forEach(function(seg) {
+      var schoolPts = {};
+      seg.scored.forEach(function(r) {
+        schoolPts[r.school] = { pts: seg.rt.pts[r.scoringPlace] || 0, place: r.scoringPlace };
+      });
+      var hasInelig = seg.ineligLanes && seg.ineligLanes.size > 0;
+
+      h += '<div class="breakdown-row">';
+      h += '<div class="bd-race" style="color:' + seg.rt.color + '">' + seg.race.eventCode +
+           (hasInelig ? ' <span style="font-size:9px;color:var(--text3)">⊘</span>' : '') + '</div>';
+      sorted.forEach(function(s) {
+        var info = schoolPts[s];
+        if (info && info.pts > 0) {
+          h += '<div class="bd-cell" style="font-weight:600">' + info.pts +
+               '<span style="font-size:9px;color:var(--text3);margin-left:2px">[' + info.place + ']</span></div>';
+        } else {
+          h += '<div class="bd-cell" style="color:rgba(255,255,255,0.15)">—</div>';
+        }
+      });
+      h += '</div>';
+    });
+    h += '</div>';
+  }
+
+  document.getElementById('tab-content').innerHTML = h;
+}
+
+// ── SCHOOLS TAB ───────────────────────────────────────────────────────────────
+function renderSchools() {
+  var sd = {};
+  SCHOOLS.forEach(function(s) { sd[s] = { cup: 0, by10: 0, by11: 0, bo8: 0, by9: 0, races: [] }; });
+
+  drawRaces.forEach(function(race) {
+    if (!race.isScoring || !race.raceType) return;
+    var results = raceResults[race.raceNum] || [];
+    if (!results.length) return;
+
+    var ineligLanes = isolatedLanes(results);
+    var eligible = results.filter(function(r) { return !ineligLanes.has(r.lane); });
+    var best = {};
+    eligible.forEach(function(r) {
+      if (!r.abbr) return;
+      if (best[r.abbr] === undefined || r.place < best[r.abbr].place) best[r.abbr] = r;
+    });
+    var scored = Object.keys(best).map(function(s) {
+      return { school: s, place: best[s].place };
+    }).sort(function(a, b) { return a.place - b.place; });
+    scored.forEach(function(r, i) { r.scoringPlace = i + 1; });
+
+    scored.forEach(function(r) {
+      if (!sd[r.school]) return;
+      var pts = race.raceType.pts[r.scoringPlace] || 0;
+      if (race.raceType.cup) sd[r.school].cup += pts;
+      sd[r.school][race.raceType.type] = (sd[r.school][race.raceType.type] || 0) + pts;
+      sd[r.school].races.push({
+        code: race.eventCode, place: r.scoringPlace,
+        pts: pts, cup: race.raceType.cup, color: race.raceType.color
+      });
+    });
+  });
+
+  var sorted = SCHOOLS.slice().sort(function(a, b) { return sd[b].cup - sd[a].cup; });
+  var medals = ['🥇','🥈','🥉'];
+  var ptColors = ['var(--gold)','#9ca3af','#cd8b50','var(--by10)','var(--by10)','var(--by10)','var(--by10)'];
+  var placeLbl = ['','1st','2nd','3rd','4th','5th','6th','7th'];
+
+  var h = '';
+  sorted.forEach(function(school, rank) {
+    var d = sd[school], color = ptColors[rank];
+    h += '<div class="school-card">';
+    h += '<div class="school-card-header">';
+    h += '<div style="display:flex;align-items:center;gap:10px">';
+    h += '<span style="font-size:' + (rank < 3 ? 20 : 13) + 'px;color:' + (rank < 3 ? color : 'var(--text3)') + '">' +
+         (rank < 3 ? medals[rank] : (rank+1)+'.') + '</span>';
+    h += '<div><div class="school-name">' + school + '</div><div class="school-full">' + SCHOOL_FULL[school] + '</div></div>';
+    h += '</div>';
+    h += '<div style="text-align:right"><div class="school-pts-big" style="color:' + color + '">' + d.cup + '</div>' +
+         '<div class="school-pts-label">Cup pts</div></div>';
+    h += '</div>';
+
+    h += '<div class="school-breakdown-row">';
+    [{label:'BY10',key:'by10',color:'var(--by10)'},{label:'BY11',key:'by11',color:'var(--by11)'},
+     {label:'BO8', key:'bo8', color:'var(--bo8)'}, {label:'BY9', key:'by9', color:'var(--by9)'}]
+    .forEach(function(b) {
+      var pts = d[b.key] || 0;
+      h += '<div class="school-bd-cell">' +
+           '<div class="school-bd-label" style="color:' + b.color + '">' + b.label + '</div>' +
+           '<div class="school-bd-pts" style="color:' + (pts > 0 ? 'var(--text)' : 'var(--text3)') + '">' + pts + '</div>' +
+           '</div>';
+    });
+    h += '</div>';
+
+    if (d.races.length) {
+      h += '<div class="school-races">';
+      d.races.forEach(function(r) {
+        h += '<div class="race-chip" style="border-left:2px solid ' + r.color + '">' +
+             '<span style="color:' + r.color + ';font-weight:600;margin-right:4px">' + r.code + '</span>' +
+             '<span style="color:var(--text3)">' + (placeLbl[r.place] || r.place+'th') + '</span>' +
+             (r.cup ? '<span style="color:var(--green);margin-left:4px">+' + r.pts + '</span>'
+                    : '<span style="color:var(--text3);margin-left:4px;font-size:9px">grade</span>') +
+             '</div>';
+      });
+      h += '</div>';
+    }
+    h += '</div>';
+  });
+
+  document.getElementById('tab-content').innerHTML = h ||
+    '<div style="text-align:center;color:var(--text3);padding:20px">No results yet</div>';
+}
+
+// ── RACES TAB ─────────────────────────────────────────────────────────────────
+function renderRaces() {
+  var h = '';
+  var placeLbl = ['','1st','2nd','3rd','4th','5th','6th','7th','8th'];
+
+  drawRaces.filter(function(r) { return r.raceType; }).forEach(function(race) {
+    var rt = race.raceType;
+    var results = raceResults[race.raceNum] || null;
+    var isLoaded = results !== null;
+    var color = rt ? rt.color : 'rgba(255,255,255,0.15)';
+    var notScoring = rt && !race.isScoring;
+
+    h += '<div class="race-card' + (notScoring ? ' not-scoring' : '') + '" style="border-left:3px solid ' + color + '">';
+    h += '<div style="display:flex;align-items:center;justify-content:space-between">';
+    h += '<span style="font-weight:600;color:' + color + '">' + race.eventCode + '</span>';
+    h += '<span style="font-size:10px;color:var(--text3)">#' + race.raceNum + (race.time ? ' · ' + race.time : '') +
+         (notScoring ? ' · <em>2nd round — not scored</em>' : '') + '</span>';
+    h += '</div>';
+
+    if (isLoaded && results.length) {
+      var ineligLanes = isolatedLanes(results);
+      var best = {};
+      results.filter(function(r) { return !ineligLanes.has(r.lane); }).forEach(function(r) {
+        if (!r.abbr) return;
+        if (best[r.abbr] === undefined || r.place < best[r.abbr].place) best[r.abbr] = r;
+      });
+      var scored = Object.keys(best).map(function(s) { return { school: s, place: best[s].place }; })
+                   .sort(function(a, b) { return a.place - b.place; });
+      scored.forEach(function(r, i) { r.scoringPlace = i + 1; });
+
+      h += '<div class="race-crews">';
+      // eligible
+      scored.forEach(function(r) {
+        var pts = rt ? (rt.pts[r.scoringPlace] || 0) : 0;
+        h += '<div class="crew-chip">' +
+             '<span style="color:var(--text3);margin-right:3px">' + r.scoringPlace + '.</span>' +
+             '<span style="font-weight:600">' + r.school + '</span>' +
+             (pts > 0 && race.isScoring ? '<span style="color:' + color + ';margin-left:3px">+' + pts + '</span>' : '') +
+             '</div>';
+      });
+      // ineligible
+      results.filter(function(r) { return ineligLanes.has(r.lane); }).forEach(function(r) {
+        h += '<div class="crew-chip ineligible">' + (r.abbr || r.crew) + '</div>';
+      });
+      h += '</div>';
+    } else if (!isLoaded) {
+      h += '<div style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:4px">Loading…</div>';
+    } else {
+      h += '<div style="font-size:11px;color:rgba(255,255,255,0.2);margin-top:4px">No results yet</div>';
+    }
+    h += '</div>';
+  });
+
+  document.getElementById('tab-content').innerHTML = h ||
+    '<div style="color:var(--text3);text-align:center;padding:24px">No scoring races found</div>';
+}
+
+// ── UI HELPERS ─────────────────────────────────────────────────────────────────
+function progress(p) {
+  var el = document.getElementById('prog-bar');
+  if (el) el.style.width = p + '%';
+}
+function status(m) {
+  var el = document.getElementById('status-text');
+  if (el) el.textContent = m;
+}
+function log(m) {
+  var el = document.getElementById('log-line');
+  if (el) el.textContent = m;
+}
+function setConnStatus(online) {
+  var dot   = document.getElementById('conn-dot');
+  var label = document.getElementById('conn-label');
+  if (!dot) return;
+  if (online === null) {
+    dot.className = 'conn-dot'; dot.style.background = 'var(--amber)';
+    label.textContent = 'LOADING';
+  } else {
+    dot.className = 'conn-dot' + (online ? ' online' : '');
+    dot.style.background = '';
+    label.textContent = online ? 'ONLINE' : 'OFFLINE';
+    label.style.color = online ? 'var(--green)' : 'var(--text3)';
+  }
+}
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+var _flashTimer = null;
+function flash(msg, isError) {
+  var el = document.getElementById('flash');
+  el.textContent = msg; el.className = isError ? '' : 'ok'; el.style.display = 'block';
+  if (_flashTimer) clearTimeout(_flashTimer);
+  _flashTimer = setTimeout(function() { el.style.display = 'none'; }, 3000);
+}
+</script>
+</body>
+</html>

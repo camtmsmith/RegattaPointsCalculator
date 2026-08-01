@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Old Boys' Cup — v12</title>
+<style>
+  body{background:#0f1117;color:#e8e9f0;font-family:'Segoe UI',system-ui,sans-serif;font-size:15px;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;}
+  .card{background:#1a1d27;border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:36px 40px;max-width:620px;width:100%;}
+  h1{font-size:22px;font-weight:700;margin-bottom:4px;}
+  .ver{font-size:12px;color:#4f6ef7;margin-bottom:28px;font-weight:600;}
+  .step{display:flex;gap:16px;margin-bottom:22px;align-items:flex-start;}
+  .sn{width:28px;height:28px;border-radius:50%;background:#4f6ef7;color:#fff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+  .st{font-size:14px;font-weight:600;margin-bottom:4px;}
+  .sd{font-size:13px;color:#7c7f96;line-height:1.6;}
+  .bm-wrap{margin-top:10px;background:#222535;border:1px solid rgba(255,255,255,.14);border-radius:10px;padding:16px;text-align:center;}
+  .bm-link{display:inline-block;background:#4f6ef7;color:#fff;border-radius:8px;padding:10px 22px;font-size:14px;font-weight:600;text-decoration:none;cursor:grab;border:2px dashed rgba(255,255,255,.3);}
+  .url-box{margin-top:10px;background:#0f1117;border:1px solid rgba(255,255,255,.08);border-radius:7px;padding:10px 12px;font-size:11px;font-family:monospace;color:#7c7f96;word-break:break-all;max-height:80px;overflow-y:auto;}
+  .copy-btn{margin-top:8px;background:#222535;border:1px solid rgba(255,255,255,.14);color:#e8e9f0;border-radius:6px;padding:5px 12px;font-size:12px;cursor:pointer;}
+  .note{margin-top:24px;padding:14px 16px;background:rgba(79,110,247,.08);border:1px solid rgba(79,110,247,.2);border-radius:8px;font-size:12px;color:#7b95ff;line-height:1.9;}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>🏆 Old Boys' Cup Calculator</h1>
+  <div class="ver">Version 12 — first occurrence scores</div>
+  <div class="step">
+    <div class="sn">1</div>
+    <div>
+      <div class="st">Open the GPS Head of the River live results page</div>
+      <div class="sd">Any year — regatta ID read from URL automatically.</div>
+    </div>
+  </div>
+  <div class="step">
+    <div class="sn">2</div>
+    <div>
+      <div class="st">Delete old bookmark, drag this v10 one fresh</div>
+      <div class="bm-wrap">
+        <a class="bm-link" id="bm" href="#">🏆 Old Boys' Cup v12</a>
+        <div style="font-size:11px;color:#7c7f96;margin-top:8px;">← Drag to bookmarks bar</div>
+        <div class="url-box" id="bm-code">Generating…</div>
+        <button class="copy-btn" onclick="copyCode()">Copy to clipboard</button>
+      </div>
+    </div>
+  </div>
+  <div class="note">
+    <strong>Gap detection:</strong> Ineligible crews are always in the lowest lanes, separated from the main field by a gap. DNS/SCR crews at the top end of the lane range do not create false gaps. Only Finals score — B/C/D/E Finals and Heats are shown but not counted.
+  </div>
+</div>
+<script>
+const BOOKMARKLET_CODE = `(function(){
+var VERSION='v12';
+if(document.getElementById('obc-panel')){document.getElementById('obc-panel').remove();return;}
+
+var mx=window.location.pathname.match(/\\/regattas\\/(\\d+)/);
+var RID=mx?mx[1]:'6999';
+
+var SCHOOL_MAP=[
+  ['BRISBANE BOYS COLLEGE','BBC'],['BRISBANE BOYS','BBC'],['BBC','BBC'],
+  ['BRISBANE GRAMMAR SCHOOL','BGS'],['BRISBANE GRAMMAR','BGS'],['BGS','BGS'],
+  ['ACGS','ACGS'],['ANGLICAN CHURCH GRAMMAR','ACGS'],['CHURCHIE','ACGS'],
+  ['BRISBANE STATE HIGH SCHOOL','BSHS'],['BRISBANE STATE HIGH','BSHS'],['BRISBANE SHS','BSHS'],['BSHS','BSHS'],
+  ['GREGORY TERRACE','GT'],['TERRACE','GT'],['GT','GT'],
+  ['NUDGEE COLLEGE','NC'],['NUDGEE','NC'],["SAINT JOSEPH'S COLLEGE",'NC'],['NC','NC'],
+  ['THE SOUTHPORT SCHOOL','TSS'],['SOUTHPORT','TSS'],['TSS','TSS'],
+];
+var SCHOOLS=['TSS','BGS','GT','ACGS','NC','BBC','BSHS'];
+var SCHOOL_FULL={TSS:'The Southport School',BGS:'Brisbane Grammar',GT:'Gregory Terrace',ACGS:'ACGS',NC:'Nudgee College',BBC:"Brisbane Boys' College",BSHS:'Brisbane SHS'};
+
+function abbrev(raw){
+  if(!raw)return null;
+  var u=raw.toUpperCase().trim().replace(/\\s+\\d+$/,'').trim();
+  for(var i=0;i<SCHOOL_MAP.length;i++){
+    if(u===SCHOOL_MAP[i][0]||u.indexOf(SCHOOL_MAP[i][0])===0)return SCHOOL_MAP[i][1];
+  }
+  return null;
+}
+
+var PTS_104={1:7,2:6,3:5,4:4,5:3,6:2,7:1};
+var PTS_8  ={1:14,2:12,3:10,4:8,5:6,6:4,7:2};
+var PTS_94 ={1:7,2:6,3:5,4:4,5:3,6:2,7:1};
+
+var RACE_TYPES=[
+  {pat:'BY104x+',type:'by10',divs:['D1','D2','D3','D4','D5','D6'],pts:PTS_104,cup:true, color:'#7b95ff'},
+  {pat:'BY118+', type:'by11',divs:['D1','D2','D3'],               pts:PTS_8,  cup:true, color:'#a78bfa'},
+  {pat:'BO8+',   type:'bo8', divs:['D1','D2','D3'],               pts:PTS_8,  cup:true, color:'#f5834a'},
+  {pat:'BY94x+', type:'by9', divs:['D1','D2','D3','D4','D5','D6'],pts:PTS_94, cup:false,color:'#94a3b8'},
+];
+
+var TABS=[
+  {id:'cup',    label:'Cup'},
+  {id:'by10',   label:'BY10'},
+  {id:'by11',   label:'BY11'},
+  {id:'bo8',    label:'BO8'},
+  {id:'by9',    label:'BY9'},
+  {id:'races',  label:'Races'},
+  {id:'schools',label:'Schools'},
+];
+
+var races={};
+var currentTab='cup';
+
+function divMatches(code,div){return code.toUpperCase().endsWith(div.toUpperCase());}
+
+// Only the first occurrence of each event code in the race list scores.
+// If the same code appears again (second round / second final), it is skipped.
+// race.isFirstOccurrence is set when parsing the race list.
+function isScoringFinal(race){
+  return race.isFirstOccurrence!==false;
+}
+
+// ── Lane gap detection ────────────────────────────────────────────────────────
+// Ineligible crews sit in the LOWEST lanes, separated from the main field by a gap.
+// DNS/SCR/DNF rows are already excluded before this is called (their rm_place is
+// whitespace → skipped in parser → their lanes never appear here).
+// Algorithm:
+//   1. Sort lane numbers ascending
+//   2. Find the first gap (jump > 1) from the bottom
+//   3. Everything below that gap is the isolated group
+//   4. Only flag as ineligible if isolated group is SMALLER than main group
+//      (prevents a DNS-caused gap near the top from incorrectly flagging most crews)
+function isolatedLanes(rows){
+  var lanes=[];
+  rows.forEach(function(r){if(r.lane&&r.lane>0)lanes.push(r.lane);});
+  if(lanes.length<2)return new Set();
+  lanes.sort(function(a,b){return a-b;});
+  var firstGapIdx=null;
+  for(var i=1;i<lanes.length;i++){
+    if(lanes[i]-lanes[i-1]>1){firstGapIdx=i;break;}
+  }
+  if(firstGapIdx===null)return new Set();
+  var isolated=lanes.slice(0,firstGapIdx);
+  var main=lanes.slice(firstGapIdx);
+  if(isolated.length>=main.length)return new Set();
+  var s=new Set();
+  isolated.forEach(function(l){s.add(l);});
+  return s;
+}
+
+// ── Panel ─────────────────────────────────────────────────────────────────────
+var panel=document.createElement('div');
+panel.id='obc-panel';
+panel.style.cssText='position:fixed;top:12px;right:12px;width:610px;max-height:94vh;overflow-y:auto;background:#0f1117;border:1px solid rgba(255,255,255,.12);border-radius:14px;box-shadow:0 12px 48px rgba(0,0,0,.7);z-index:99999;font-family:Segoe UI,system-ui,sans-serif;font-size:12px;color:#e8e9f0;';
+var tabBtns=TABS.map(function(t){
+  var a=t.id==='cup';
+  return '<button id="obc-tab-'+t.id+'" onclick="obcTab(\\''+t.id+'\\')" style="background:'+(a?'#4f6ef7':'#222535')+';border:'+(a?'none':'1px solid rgba(255,255,255,.1)')+';color:'+(a?'#fff':'#7c7f96')+';border-radius:6px;padding:4px 9px;font-size:11px;font-weight:'+(a?'600':'400')+';cursor:pointer;">'+t.label+'</button>';
+}).join('');
+panel.innerHTML=
+  '<div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);background:#1a1d27;border-radius:14px 14px 0 0;position:sticky;top:0;z-index:2;">'
+  +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+  +'<div><div style="font-weight:700;font-size:15px;">🏆 Old Boys\\' Cup <span style="font-size:10px;color:#4f6ef7;">'+VERSION+'</span></div>'
+  +'<div id="obc-status" style="font-size:11px;color:#7c7f96;margin-top:1px;">Regatta #'+RID+' · Starting…</div></div>'
+  +'<button onclick="document.getElementById(\\'obc-panel\\').remove()" style="background:none;border:none;color:#7c7f96;font-size:20px;cursor:pointer;padding:0 2px;line-height:1;">×</button>'
+  +'</div><div style="display:flex;gap:4px;flex-wrap:wrap;">'+tabBtns+'</div></div>'
+  +'<div style="height:2px;background:rgba(255,255,255,.05);"><div id="obc-prog" style="height:100%;background:#4f6ef7;width:0%;transition:width .5s;"></div></div>'
+  +'<div id="obc-content" style="padding:14px 16px;"></div>'
+  +'<div style="padding:6px 16px 10px;border-top:1px solid rgba(255,255,255,.06);">'
+  +'<div id="obc-log" style="font-size:10px;font-family:monospace;color:#7c7f96;max-height:48px;overflow-y:auto;line-height:1.6;"></div>'
+  +'</div>';
+document.body.appendChild(panel);
+
+window.obcTab=function(tab){
+  currentTab=tab;
+  TABS.forEach(function(t){
+    var b=document.getElementById('obc-tab-'+t.id);if(!b)return;
+    var a=t.id===tab;
+    b.style.background=a?'#4f6ef7':'#222535';
+    b.style.color=a?'#fff':'#7c7f96';
+    b.style.border=a?'none':'1px solid rgba(255,255,255,.1)';
+    b.style.fontWeight=a?'600':'400';
+  });
+  obcRender();
+};
+
+function obcLog(msg,col){
+  var el=document.getElementById('obc-log');if(!el)return;
+  var t=new Date().toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  var line=document.createElement('div');line.style.color=col||'#7c7f96';
+  line.textContent='['+t+'] '+msg;el.insertBefore(line,el.firstChild);
+}
+function obcProg(p){var e=document.getElementById('obc-prog');if(e)e.style.width=p+'%';}
+function obcStatus(m){var e=document.getElementById('obc-status');if(e)e.textContent=m;}
+function sleep(ms){return new Promise(function(r){setTimeout(r,ms);});}
+
+// ── Parser ────────────────────────────────────────────────────────────────────
+function parseResultHtml(html){
+  if(!html)return{results:[],raceType:null};
+  var tmp=document.createElement('div');tmp.innerHTML=html;
+  var raceType=null;
+  var hdrs=tmp.querySelectorAll('.rm_results_hdr');
+  if(hdrs.length)raceType=hdrs[hdrs.length-1].textContent.trim()||null;
+  var pmap={'1st':1,'2nd':2,'3rd':3,'4th':4,'5th':5,'6th':6,'7th':7,'8th':8,'9th':9,'10th':10,'11th':11,'12th':12};
+  var rawRows=[];
+  tmp.querySelectorAll('tr').forEach(function(row){
+    var placeEl=row.querySelector('.rm_place');
+    if(!placeEl)return;
+    var placeText=placeEl.textContent.trim();
+    if(!placeText)return; // DNS/SCR/DNF have whitespace only
+    var overallPlace=pmap[placeText.toLowerCase()]||null;
+    if(!overallPlace)return;
+    var schoolEl=row.querySelector('div[style*="float:left"]');
+    if(!schoolEl)return;
+    var rawSchool=schoolEl.textContent.trim();
+    if(!rawSchool)return;
+    var cells=row.querySelectorAll('td');
+    var lane=0;
+    if(cells[2]){var lv=parseInt(cells[2].textContent.trim());if(!isNaN(lv)&&lv>0&&lv<=10)lane=lv;}
+    var divCode=null;
+    if(cells[1]){var dm=cells[1].innerHTML.match(/(?:\\d+(?:st|nd|rd|th))\\s+([A-Z0-9+]+D\\d+):/i);if(dm)divCode=dm[1].toUpperCase();}
+    var time='';
+    cells.forEach(function(td){if(!time&&/^\\d+:\\d+\\.\\d+$/.test(td.textContent.trim()))time=td.textContent.trim();});
+    rawRows.push({overallPlace:overallPlace,rawSchool:rawSchool,lane:lane,divCode:divCode,time:time});
+  });
+  if(!rawRows.length)return{results:[],raceType:raceType};
+  var divCodeSet={};
+  rawRows.forEach(function(r){if(r.divCode)divCodeSet[r.divCode]=true;});
+  var udc=Object.keys(divCodeSet);
+  var results=[];
+  if(udc.length>1){
+    var groups={};
+    rawRows.forEach(function(r){var k=r.divCode||'UNKNOWN';if(!groups[k])groups[k]=[];groups[k].push(r);});
+    Object.keys(groups).forEach(function(dc){
+      groups[dc].forEach(function(r,idx){results.push({place:idx+1,overallPlace:r.overallPlace,rawSchool:r.rawSchool,lane:r.lane,divCode:dc,time:r.time});});
+    });
+  }else{
+    rawRows.forEach(function(r){results.push({place:r.overallPlace,overallPlace:r.overallPlace,rawSchool:r.rawSchool,lane:r.lane,divCode:r.divCode,time:r.time});});
+  }
+  return{results:results,raceType:raceType};
+}
+
+// ── Classification ────────────────────────────────────────────────────────────
+function classifyRace(race){
+  var segments=[],seen={};
+  (race.codes||[]).forEach(function(code){
+    var u=code.toUpperCase();if(seen[u])return;
+    for(var i=0;i<RACE_TYPES.length;i++){
+      var rt=RACE_TYPES[i];
+      if(u.indexOf(rt.pat.toUpperCase())<0)continue;
+      for(var di=0;di<rt.divs.length;di++){
+        if(divMatches(code,rt.divs[di])){seen[u]=true;segments.push({rt:rt,code:code});break;}
+      }
+    }
+  });
+  return segments;
+}
+
+function resultsForDiv(results,divCode){
+  var hdc=results.some(function(r){return r.divCode;});
+  if(hdc)return results.filter(function(r){return r.divCode&&r.divCode.toUpperCase()===divCode.toUpperCase();});
+  return results;
+}
+
+function eligibleScored(divResults){
+  var ineligibleLanes=isolatedLanes(divResults);
+  var eligible=divResults.filter(function(r){return !ineligibleLanes.has(r.lane);});
+  var ineligible=divResults.filter(function(r){return ineligibleLanes.has(r.lane);});
+  eligible.sort(function(a,b){return a.place-b.place;});
+  ineligible.sort(function(a,b){return a.place-b.place;});
+  var best={};
+  eligible.forEach(function(r){
+    var s=abbrev(r.rawSchool);if(!s)return;
+    if(best[s]===undefined||r.place<best[s].place)best[s]={place:r.place,time:r.time};
+  });
+  var scored=Object.keys(best).map(function(s){return{school:s,place:best[s].place};}).sort(function(a,b){return a.place-b.place;});
+  scored.forEach(function(r,i){r.scoringPlace=i+1;});
+  var ineligBest={};
+  ineligible.forEach(function(r){
+    var s=abbrev(r.rawSchool)||r.rawSchool;
+    if(ineligBest[s]===undefined||r.place<ineligBest[s].place)ineligBest[s]={place:r.place,school:s};
+  });
+  var ineligList=Object.keys(ineligBest).map(function(s){return ineligBest[s];}).sort(function(a,b){return a.place-b.place;});
+  return{scored:scored,ineligList:ineligList,ineligibleLanes:ineligibleLanes};
+}
+
+// ── Compute totals ────────────────────────────────────────────────────────────
+function computeTotals(filterFn){
+  var totals={},segments=[];
+  SCHOOLS.forEach(function(s){totals[s]=0;});
+  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
+    var race=races[id];
+    if(!race.results||!race.results.length)return;
+    if(!isScoringFinal(race))return;
+    classifyRace(race).forEach(function(seg){
+      if(!filterFn(seg))return;
+      var divResults=resultsForDiv(race.results,seg.code);
+      if(!divResults.length)return;
+      var e=eligibleScored(divResults);
+      if(!e.scored.length)return;
+      segments.push({race:race,seg:seg,scored:e.scored,ineligList:e.ineligList,ineligibleLanes:e.ineligibleLanes});
+      e.scored.forEach(function(r){
+        var pts=seg.rt.pts[r.scoringPlace]||0;
+        if(totals[r.school]!==undefined)totals[r.school]+=pts;
+      });
+    });
+  });
+  return{totals:totals,segments:segments};
+}
+
+// ── Grid renderer ─────────────────────────────────────────────────────────────
+function renderGrid(segments,totals,schoolOrder,note){
+  var medals=['🥇','🥈','🥉'],ptColors=['#f5c842','#adb5c9','#cd8b50'];
+  var cols='90px '+schoolOrder.map(function(){return'1fr';}).join(' ');
+  var h='';
+  if(note)h+='<div style="font-size:11px;color:#7b95ff;margin-bottom:10px;padding:7px 11px;background:rgba(79,110,247,.08);border-radius:7px;border:1px solid rgba(79,110,247,.15);">'+note+'</div>';
+  h+='<div style="display:grid;grid-template-columns:'+cols+';background:#1a1d27;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.08);margin-bottom:12px;">';
+  h+='<div style="padding:8px 10px;border-bottom:1px solid rgba(255,255,255,.08);"></div>';
+  schoolOrder.forEach(function(s,i){h+='<div style="padding:8px 4px;text-align:center;font-size:11px;font-weight:700;border-bottom:1px solid rgba(255,255,255,.08);color:'+(i<3?ptColors[i]:'#e8e9f0')+'">'+(i<3?medals[i]+'<br>':'')+s+'</div>';});
+  h+='<div style="padding:7px 10px;font-size:11px;font-weight:700;color:#7c7f96;border-bottom:1px solid rgba(255,255,255,.08);">Points</div>';
+  schoolOrder.forEach(function(s,i){var pts=totals[s]||0;h+='<div style="padding:7px 4px;text-align:center;font-weight:700;font-size:'+(pts>0?'15px':'12px')+';color:'+(i<3?ptColors[i]:(pts>0?'#7b95ff':'#555'))+';border-bottom:1px solid rgba(255,255,255,.08);">'+pts+'</div>';});
+  h+='<div style="padding:6px 10px;font-size:11px;color:#7c7f96;">Rank</div>';
+  schoolOrder.forEach(function(s,i){h+='<div style="padding:6px 4px;text-align:center;font-size:11px;color:#7c7f96;">'+(totals[s]>0?i+1:'—')+'</div>';});
+  h+='</div>';
+  if(!segments.length)return h+'<div style="text-align:center;color:#7c7f96;padding:16px 0;">No results yet</div>';
+  h+='<div style="font-size:10px;color:#7c7f96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Race breakdown</div>';
+  h+='<div style="background:#1a1d27;border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,.08);">';
+  h+='<div style="display:grid;grid-template-columns:'+cols+';border-bottom:1px solid rgba(255,255,255,.08);">';
+  h+='<div style="padding:7px 10px;font-size:10px;color:#7c7f96;font-weight:700;">Race</div>';
+  schoolOrder.forEach(function(s){h+='<div style="padding:7px 4px;text-align:center;font-size:10px;color:#7c7f96;font-weight:700;">'+s+'</div>';});
+  h+='</div>';
+  segments.forEach(function(item,idx){
+    var seg=item.seg,scored=item.scored,color=seg.rt.color;
+    var hasInelig=item.ineligibleLanes&&item.ineligibleLanes.size>0;
+    var schoolPts={};
+    scored.forEach(function(r){schoolPts[r.school]={pts:seg.rt.pts[r.scoringPlace]||0,place:r.scoringPlace};});
+    var bg=idx%2===0?'transparent':'rgba(255,255,255,.02)';
+    h+='<div style="display:grid;grid-template-columns:'+cols+';background:'+bg+';border-bottom:1px solid rgba(255,255,255,.04);">';
+    h+='<div style="padding:6px 10px;font-size:11px;font-weight:600;color:'+color+';white-space:nowrap;">'+seg.code+(hasInelig?' <span style="font-size:9px;color:#555;">⊘</span>':'')+'</div>';
+    schoolOrder.forEach(function(s){
+      var info=schoolPts[s];
+      if(info&&info.pts>0){h+='<div style="padding:6px 4px;text-align:center;font-size:11px;font-weight:600;color:#e8e9f0;">'+info.pts+'<span style="font-size:9px;color:#7c7f96;margin-left:2px;">['+info.place+']</span></div>';}
+      else{h+='<div style="padding:6px 4px;text-align:center;color:rgba(255,255,255,.12);">—</div>';}
+    });
+    h+='</div>';
+  });
+  h+='</div>';
+  return h;
+}
+
+// ── Tab renderers ─────────────────────────────────────────────────────────────
+function obcRender(){
+  if(currentTab==='cup')       renderStandings(function(seg){return seg.rt.cup;},null);
+  else if(currentTab==='by10') renderStandings(function(seg){return seg.rt.type==='by10';},'Year 10 Quad — included in Cup total');
+  else if(currentTab==='by11') renderStandings(function(seg){return seg.rt.type==='by11';},'Year 11 Eight — included in Cup total');
+  else if(currentTab==='bo8')  renderStandings(function(seg){return seg.rt.type==='bo8';},'Open Eight — included in Cup total');
+  else if(currentTab==='by9')  renderStandings(function(seg){return seg.rt.type==='by9';},"Year 9 Quad — grade ranking only, not in Cup total");
+  else if(currentTab==='schools') renderSchools();
+  else renderRaces();
+}
+function renderStandings(filterFn,note){
+  var el=document.getElementById('obc-content');if(!el)return;
+  var r=computeTotals(filterFn);
+  var sorted=SCHOOLS.slice().sort(function(a,b){return r.totals[b]-r.totals[a];});
+  el.innerHTML=renderGrid(r.segments,r.totals,sorted,note);
+}
+
+// ── Schools tab ───────────────────────────────────────────────────────────────
+function renderSchools(){
+  var el=document.getElementById('obc-content');if(!el)return;
+  var sd={};
+  SCHOOLS.forEach(function(s){sd[s]={cup:0,by9:0,by10:0,by11:0,bo8:0,races:[]};});
+  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
+    var race=races[id];
+    if(!race.results||!race.results.length||!isScoringFinal(race))return;
+    classifyRace(race).forEach(function(seg){
+      var dr=resultsForDiv(race.results,seg.code);if(!dr.length)return;
+      var e=eligibleScored(dr);
+      e.scored.forEach(function(r){
+        var pts=seg.rt.pts[r.scoringPlace]||0;
+        if(!sd[r.school])return;
+        if(seg.rt.cup)sd[r.school].cup+=pts;
+        sd[r.school][seg.rt.type]=(sd[r.school][seg.rt.type]||0)+pts;
+        sd[r.school].races.push({code:seg.code,place:r.scoringPlace,pts:pts,cup:seg.rt.cup,color:seg.rt.color});
+      });
+    });
+  });
+  var sorted=SCHOOLS.slice().sort(function(a,b){return sd[b].cup-sd[a].cup;});
+  var medals=['🥇','🥈','🥉'],ptColors=['#f5c842','#adb5c9','#cd8b50','#7b95ff','#7b95ff','#7b95ff','#7b95ff'];
+  var pll=['','1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th'];
+  var h='';
+  sorted.forEach(function(school,rank){
+    var d=sd[school],color=ptColors[rank];
+    h+='<div style="background:#1a1d27;border-radius:10px;border:1px solid rgba(255,255,255,.08);margin-bottom:10px;overflow:hidden;">';
+    h+='<div style="padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;">';
+    h+='<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:'+(rank<3?'18':'13')+'px;color:'+(rank<3?'inherit':'#7c7f96')+'">'+(rank<3?medals[rank]:(rank+1)+'.')+'</span>'
+      +'<div><div style="font-weight:700;font-size:14px;">'+school+'</div><div style="font-size:11px;color:#7c7f96;">'+SCHOOL_FULL[school]+'</div></div></div>';
+    h+='<div style="text-align:right;"><div style="font-size:22px;font-weight:700;color:'+color+';">'+d.cup+'</div><div style="font-size:10px;color:#7c7f96;">Cup pts</div></div></div>';
+    h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);border-bottom:1px solid rgba(255,255,255,.08);">';
+    [{label:'BY10',key:'by10',color:'#7b95ff'},{label:'BY11',key:'by11',color:'#a78bfa'},{label:'BO8',key:'bo8',color:'#f5834a'},{label:'BY9',key:'by9',color:'#94a3b8'}]
+    .forEach(function(b,bi){
+      var pts=d[b.key]||0;
+      h+='<div style="padding:8px 6px;text-align:center;'+(bi<3?'border-right:1px solid rgba(255,255,255,.06);':'')+'">'
+        +'<div style="font-size:10px;color:'+b.color+';font-weight:600;margin-bottom:2px;">'+b.label+'</div>'
+        +'<div style="font-size:14px;font-weight:700;color:'+(pts>0?'#e8e9f0':'#444')+';">'+pts+'</div></div>';
+    });
+    h+='</div>';
+    if(d.races.length){
+      h+='<div style="padding:8px 14px;"><div style="font-size:10px;color:#7c7f96;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Race results</div><div style="display:flex;flex-wrap:wrap;gap:4px;">';
+      d.races.forEach(function(r){
+        h+='<div style="background:rgba(255,255,255,.05);border-radius:6px;padding:4px 8px;font-size:11px;border-left:2px solid '+r.color+';">'
+          +'<span style="color:'+r.color+';font-weight:600;margin-right:4px;">'+r.code+'</span>'
+          +'<span style="color:#7c7f96;">'+(pll[r.place]||r.place+'th')+'</span>'
+          +(r.cup?'<span style="color:#3ecf8e;margin-left:4px;">+'+r.pts+'</span>':'<span style="color:#555;margin-left:4px;font-size:10px;">grade</span>')
+          +'</div>';
+      });
+      h+='</div></div>';
+    }
+    h+='</div>';
+  });
+  el.innerHTML=h||'<div style="text-align:center;color:#7c7f96;padding:20px;">No results yet</div>';
+}
+
+// ── Races tab ─────────────────────────────────────────────────────────────────
+function renderRaces(){
+  var el=document.getElementById('obc-content');if(!el)return;
+  var ids=Object.keys(races).sort(function(a,b){return+a-+b;});
+  if(!ids.length){el.innerHTML='<div style="color:#7c7f96;text-align:center;padding:24px;">No races loaded</div>';return;}
+  var h='';
+  ids.forEach(function(id){
+    var race=races[id],segs=classifyRace(race);
+    var codeStr=race.codes.join(' + ')||'Race #'+id;
+    var hasResults=race.results&&race.results.length;
+    var isScoring=segs.length>0&&isScoringFinal(race);
+    var notFinal=segs.length>0&&race.isFirstOccurrence===false;
+    var color=isScoring?segs[0].rt.color:'rgba(255,255,255,.15)';
+    h+='<div style="margin-bottom:6px;background:#1a1d27;border-radius:8px;border:1px solid rgba(255,255,255,.07);border-left:3px solid '+color+';padding:8px 12px;'+(notFinal?'opacity:0.5;':'')+'">'; 
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasResults?'5px':'0')+';">';
+    h+='<div><span style="font-weight:600;font-size:12px;color:'+color+';">'+codeStr+'</span>'
+      +(notFinal?'<span style="font-size:10px;color:#7c7f96;margin-left:8px;">2nd round — not scored</span>':'')+'</div>';
+    h+='<span style="font-size:10px;color:#7c7f96;">#'+id+' · '+race.time+'</span></div>';
+    if(hasResults){
+      if(isScoring){
+        segs.forEach(function(seg){
+          var dr=resultsForDiv(race.results,seg.code);
+          var e=eligibleScored(dr);
+          if(segs.length>1)h+='<div style="font-size:10px;color:'+seg.rt.color+';margin:3px 0 2px;">'+seg.code+'</div>';
+          // Merge eligible and ineligible in finish order
+          var allRows=[];
+          e.scored.forEach(function(r){allRows.push({school:r.school,place:r.place,scoringPlace:r.scoringPlace,pts:seg.rt.pts[r.scoringPlace]||0,eligible:true,color:seg.rt.color});});
+          e.ineligList.forEach(function(r){allRows.push({school:r.school,place:r.place,scoringPlace:null,pts:0,eligible:false});});
+          allRows.sort(function(a,b){return a.place-b.place;});
+          h+='<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+          allRows.forEach(function(r){
+            if(r.eligible){
+              h+='<div style="background:rgba(255,255,255,.05);border-radius:5px;padding:3px 7px;font-size:11px;">'
+                +'<span style="color:#7c7f96;margin-right:2px;">'+r.scoringPlace+'.</span>'
+                +'<span style="font-weight:600;">'+r.school+'</span>'
+                +(r.pts>0?'<span style="color:'+r.color+';margin-left:3px;">+'+r.pts+'</span>':'')
+                +'</div>';
+            }else{
+              h+='<div style="background:rgba(255,255,255,.02);border-radius:5px;padding:3px 7px;font-size:11px;opacity:0.3;border:1px solid rgba(255,255,255,.05);">'
+                +'<span style="color:#7c7f96;">'+r.school+'</span>'
+                +'</div>';
+            }
+          });
+          h+='</div>';
+        });
+      }else{
+        h+='<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+        (race.results||[]).forEach(function(r){var ab=abbrev(r.rawSchool)||r.rawSchool;h+='<div style="background:rgba(255,255,255,.04);border-radius:5px;padding:3px 7px;font-size:11px;color:#7c7f96;">'+r.place+'. '+ab+'</div>';});
+        h+='</div>';
+      }
+    }else if(race.results!==null){h+='<div style="font-size:11px;color:rgba(255,255,255,.2);">No results yet</div>';}
+    else{h+='<div style="font-size:11px;color:rgba(255,255,255,.2);">Loading…</div>';}
+    h+='</div>';
+  });
+  el.innerHTML=h;
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
+async function fetchJSON(url,retries,delay){
+  for(var i=0;i<=retries;i++){
+    try{
+      var res=await fetch(url,{cache:'no-cache'});
+      if(res.status===429||res.status===503){obcLog('Rate limited — waiting '+(delay*(i+2)/1000)+'s','#f5834a');await sleep(delay*(i+2));continue;}
+      if(!res.ok)throw new Error('HTTP '+res.status);
+      return await res.json();
+    }catch(e){if(i<retries)await sleep(delay*(i+1));else throw e;}
+  }
+}
+
+async function obcLoad(){
+  obcLog('Regatta #'+RID+' · Fetching race list…','#7b95ff');
+  try{
+    var sj=await fetchJSON('/regattas/'+RID+'/live/v1/status',3,2000);
+    var tmp=document.createElement('div');tmp.innerHTML=sj.race_list||'';
+    var firstSeenCode={};
+    tmp.querySelectorAll('tr[id^="tr_"]').forEach(function(row){
+      var id=row.id.replace('tr_','');
+      var cells=row.querySelectorAll('td');if(cells.length<4)return;
+      var time=cells[1]?cells[1].textContent.trim():'';
+      var raceType=cells[3]?cells[3].textContent.trim():null;
+      var codes=[].slice.call(row.querySelectorAll('.rm_ec')).map(function(e){return e.textContent.trim();}).filter(Boolean);
+      if(!codes.length)return;
+      // First occurrence of each scoring code gets points; repeats (second round) do not
+      var isFirst=codes.some(function(code){
+        if(!firstSeenCode[code]){firstSeenCode[code]=true;return true;}
+        return false;
+      });
+      races[id]={id:id,codes:codes,time:time,raceType:raceType,isFirstOccurrence:isFirst,results:null};
+    });
+  }catch(e){obcLog('Race list failed: '+e.message,'#e55');obcStatus('Error');return;}
+
+  var ids=Object.keys(races).sort(function(a,b){return+a-+b;});
+  var total=ids.length,failed=[];
+  obcLog('Found '+total+' races','#3ecf8e');
+
+  for(var i=0;i<ids.length;i++){
+    var id=ids[i];
+    obcProg(Math.round(i/total*80));
+    obcStatus('Regatta #'+RID+' · Loading ('+(i+1)+'/'+total+')…');
+    try{
+      var j=await fetchJSON('/regattas/'+RID+'/live/v1/'+id+'/load',2,3000);
+      var parsed=parseResultHtml(j.results_html||'');
+      races[id].results=parsed.results;
+      if(parsed.raceType)races[id].raceType=parsed.raceType;
+      if(parsed.results.length){
+        var isF=isScoringFinal(races[id]),segs=classifyRace(races[id]);
+        var cnt=isF&&segs.length?segs.reduce(function(a,seg){return a+eligibleScored(resultsForDiv(parsed.results,seg.code)).scored.length;},0):parsed.results.length;
+        obcLog('#'+id+' '+races[id].codes.join(',')+(isF?'':' ['+races[id].raceType+' – not scored]')+'  '+cnt+(isF?' eligible':''),'#3ecf8e');
+        obcRender();
+      }else races[id].results=[];
+    }catch(e){races[id].results=[];failed.push(id);}
+    await sleep(500);
+  }
+
+  if(failed.length){
+    obcLog('Retrying '+failed.length+'…','#f5834a');await sleep(3000);
+    for(var i=0;i<failed.length;i++){
+      var id=failed[i];obcStatus('Retrying ('+(i+1)+'/'+failed.length+')…');obcProg(80+Math.round(i/failed.length*18));
+      try{
+        var j=await fetchJSON('/regattas/'+RID+'/live/v1/'+id+'/load',3,4000);
+        var parsed=parseResultHtml(j.results_html||'');
+        races[id].results=parsed.results;
+        if(parsed.raceType)races[id].raceType=parsed.raceType;
+        if(parsed.results.length){obcLog('#'+id+' retry OK','#3ecf8e');obcRender();}
+      }catch(e){obcLog('#'+id+' retry failed','#e55');}
+      await sleep(2000);
+    }
+  }
+
+  obcProg(100);setTimeout(function(){obcProg(0);},1000);
+  obcStatus('Regatta #'+RID+' · All loaded · listening for updates');
+  obcLog('Complete','#3ecf8e');obcRender();
+
+  var orig=window.ProcessWebsocketMessage;
+  window.ProcessWebsocketMessage=function(data){
+    if(orig)orig(data);
+    try{
+      var d=JSON.parse(data);
+      if(d.msg==='results'){
+        var id=String(d.race);
+        if(!races[id])races[id]={id:id,codes:[],time:'',raceType:null,results:null};
+        var parsed=parseResultHtml(d.results||'');
+        races[id].results=parsed.results;
+        if(parsed.raceType)races[id].raceType=parsed.raceType;
+        obcLog('Live update: race #'+id,'#3ecf8e');obcRender();
+      }
+    }catch(e){}
+  };
+}
+
+obcLoad();
+})();`;
+
+const encoded='javascript:'+encodeURIComponent(BOOKMARKLET_CODE);
+document.getElementById('bm').href=encoded;
+document.getElementById('bm-code').textContent=encoded;
+function copyCode(){
+  navigator.clipboard.writeText(document.getElementById('bm-code').textContent).then(()=>{
+    const btn=document.querySelector('.copy-btn');
+    btn.textContent='Copied!';
+    setTimeout(()=>btn.textContent='Copy to clipboard',2000);
+  });
+}
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 (function(){
-var VERSION='v1.11';
+var VERSION='v1.15';
 if(document.getElementById('bsra-panel')){document.getElementById('bsra-panel').remove();return;}
 
 var mx=window.location.pathname.match(/\/regattas\/(\d+)/);
@@ -42,7 +42,7 @@ function abbrev(raw){
   return null;
 }
 // Entries marked e.g. "St Margaret's [inv]" are invitational crews — they race but never score points.
-function isInvitational(raw){return /\[\s*inv\.?\s*\]/i.test(raw||'');}
+function isInvitational(raw){return /[\[(]\s*inv\.?\s*[\])]/i.test(raw||'');}
 
 // ── Points scales (by boat class) ─────────────────────────────────────────────
 var PTS_1={1:10,2:9,3:8,4:7,5:6,6:5,7:4,8:3,9:2,10:1};                 // 1x
@@ -111,6 +111,58 @@ function rankMap(vals,exclude){
 }
 
 var races={};
+var RACES_KEY=RID?('bsra_races_'+RID+'_v1'):null;
+function loadRaces(){
+  if(!RACES_KEY)return;
+  try{
+    var raw=window.localStorage.getItem(RACES_KEY);
+    if(raw){var saved=JSON.parse(raw);for(var id in saved)races[id]=saved[id];}
+  }catch(e){}
+}
+function saveRaces(){
+  if(!RACES_KEY)return;
+  try{window.localStorage.setItem(RACES_KEY,JSON.stringify(races));}catch(e){}
+}
+loadRaces();
+
+// First code in a list that classifies as a scoring boat type.
+function firstClassifiable(codes){
+  for(var i=0;i<(codes||[]).length;i++){if(classifyCode(codes[i]))return codes[i];}
+  return (codes&&codes[0])||null;
+}
+// Split a race into scoring units. A combined race (crews carry divCodes) becomes one
+// unit per division, each ranked on its OWN in-division places; otherwise one unit on
+// the overall order using the race's event code.
+function getUnits(race){
+  var res=race.results||[];
+  var byDiv={},hasDiv=false;
+  res.forEach(function(r){if(r.divCode){hasDiv=true;(byDiv[r.divCode]=byDiv[r.divCode]||[]).push(r);}});
+  var units=[];
+  if(hasDiv){
+    Object.keys(byDiv).forEach(function(code){
+      units.push({code:code,rows:byDiv[code].map(function(r){return {place:(r.divPlace||r.place),rawSchool:r.rawSchool,lane:r.lane,time:r.time};})});
+    });
+  }else{
+    units.push({code:firstClassifiable(race.codes),rows:res.map(function(r){return {place:r.place,rawSchool:r.rawSchool,lane:r.lane,time:r.time};})});
+  }
+  return units;
+}
+// All scoring units across the regatta, in schedule order, with first-occurrence-per-code
+// de-duplication (a code that already ran earlier is a repeat and does not score again).
+function collectUnits(){
+  var seen={},out=[];
+  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
+    var race=races[id];
+    if(!race.results||!race.results.length)return;
+    getUnits(race).forEach(function(u){
+      var cls=classifyCode(u.code);
+      var first=!(u.code&&seen[u.code]);
+      if(u.code)seen[u.code]=true;
+      out.push({raceId:id,code:u.code,cls:cls,rows:u.rows,first:first,time:race.time});
+    });
+  });
+  return out;
+}
 var currentTab='cup';
 var TABS=[
   {id:'cup',     label:'Aggregate Cup'},
@@ -126,17 +178,14 @@ function computeAggregate(){
   var totals={},years={},segments=[];
   SCHOOLS.forEach(function(s){totals[s]=0;});
   CATS.forEach(function(c){years[c]={};SCHOOLS.forEach(function(s){years[c][s]=0;});});
-  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
-    var race=races[id];
-    if(!race.results||!race.results.length||!isScoringOccurrence(race))return;
-    var cls=classifyRace(race);
-    if(!cls||!cls.scores)return;
-    var e=eligibleScored(race.results);
+  collectUnits().forEach(function(u){
+    if(!u.cls||!u.cls.scores||!u.first)return;
+    var e=eligibleScored(u.rows);
     if(!e.scored.length)return;
-    segments.push({race:race,cls:cls,scored:e.scored});
+    segments.push({cls:u.cls,scored:e.scored,code:u.code});
     e.scored.forEach(function(r){
-      var pts=cls.pts[r.scoringPlace]||0;
-      if(totals[r.school]!==undefined){totals[r.school]+=pts;years[cls.cat][r.school]+=pts;}
+      var pts=u.cls.pts[r.scoringPlace]||0;
+      if(totals[r.school]!==undefined){totals[r.school]+=pts;years[u.cls.cat][r.school]+=pts;}
     });
   });
   var rankOf=rankMap(totals);
@@ -146,14 +195,9 @@ function computeAggregate(){
 }
 function computeFirstEight(){
   var found=null;
-  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
-    var r=races[id];
-    if(!r.results||!r.results.length||!isScoringOccurrence(r))return;
-    var cls=classifyRace(r);
-    if(cls&&cls.firstEight)found=r;
-  });
+  collectUnits().forEach(function(u){if(u.cls&&u.cls.firstEight&&u.first)found=u;});
   if(!found)return null;
-  var e=eligibleScored(found.results);
+  var e=eligibleScored(found.rows);
   var rank={};e.scored.forEach(function(r){rank[r.school]=r.scoringPlace;});
   return {rank:rank,winner:(e.scored[0]||{}).school,scored:e.scored};
 }
@@ -236,15 +280,24 @@ function parseResultHtml(html){
     var cells=row.querySelectorAll('td');
     var lane=0;if(cells[2]){var lv=parseInt(cells[2].textContent.trim());if(!isNaN(lv)&&lv>0&&lv<=10)lane=lv;}
     var time='';cells.forEach(function(td){if(!time&&/^\d+:\d+\.\d+$/.test(td.textContent.trim()))time=td.textContent.trim();});
-    results.push({place:overallPlace,rawSchool:rawSchool,lane:lane,time:time});
+    // Combined races put the division + in-division place in the crew cell,
+    // e.g. "1st GY104x+D4: ST MARGARET'S". Pull those out when present.
+    var divCode=null,divPlace=null;
+    var crewTd=schoolEl.closest?schoolEl.closest('td'):null;
+    var crewText=(crewTd?crewTd.textContent:rawSchool)||'';
+    var mm=crewText.match(/(\d+)(?:st|nd|rd|th)\s+([^:]+?):/i);
+    if(mm){divPlace=parseInt(mm[1],10);divCode=mm[2].replace(/\s+/g,'');}
+    results.push({place:overallPlace,divPlace:divPlace,divCode:divCode,rawSchool:rawSchool,lane:lane,time:time});
   });
   return {results:results,raceType:raceType};
 }
 
 // ── Aggregate Cup tab ─────────────────────────────────────────────────────────
 var MEDAL=['🥇','🥈','🥉'],MEDALC=['#f5c842','#c8d2da','#d69355'];
+var PODIUM={1:'#fbf0c9',2:'#edf0f3',3:'#f5e7d6'}; // light gold / silver / bronze fills
 function rankColor(r){return (r>=1&&r<=3)?MEDALC[r-1]:'#5fd3df';}
 function bsraRender(){
+  saveRaces();
   if(currentTab==='cup')          renderCup();
   else if(currentTab==='trophies')renderTrophies();
   else if(currentTab==='schools') renderSchools();
@@ -342,15 +395,13 @@ function renderTrophies(){
 function renderSchools(){
   var el=document.getElementById('bsra-content');if(!el)return;
   var sd={};SCHOOLS.forEach(function(s){sd[s]={total:0,GY8:0,GY9:0,GY10:0,Senior:0,races:[]};});
-  Object.keys(races).sort(function(a,b){return+a-+b;}).forEach(function(id){
-    var race=races[id];
-    if(!race.results||!race.results.length||!isScoringOccurrence(race))return;
-    var cls=classifyRace(race);if(!cls||!cls.scores)return;
-    var e=eligibleScored(race.results);
+  collectUnits().forEach(function(u){
+    if(!u.cls||!u.cls.scores||!u.first)return;
+    var e=eligibleScored(u.rows);
     e.scored.forEach(function(r){
-      var pts=cls.pts[r.scoringPlace]||0;if(!sd[r.school])return;
-      sd[r.school].total+=pts;sd[r.school][cls.cat]+=pts;
-      sd[r.school].races.push({code:cls.code,place:r.scoringPlace,pts:pts,color:cls.color});
+      var pts=u.cls.pts[r.scoringPlace]||0;if(!sd[r.school])return;
+      sd[r.school].total+=pts;sd[r.school][u.cls.cat]+=pts;
+      sd[r.school].races.push({code:u.cls.code,place:r.scoringPlace,pts:pts,color:u.cls.color});
     });
   });
   var sorted=SCHOOLS.slice().sort(function(a,b){return sd[b].total-sd[a].total;});
@@ -388,46 +439,77 @@ function renderSchools(){
 }
 
 // ── Races tab ─────────────────────────────────────────────────────────────────
+async function bsraRefreshRace(id){
+  var btn=document.getElementById('bsra-refetch-'+id);
+  if(btn){btn.disabled=true;btn.textContent='…';}
+  try{
+    var n=await loadRace(id,2,8000);
+    bsraLog('Refreshed #'+id+(n?' · '+n+' result rows':' · still no results'),'#3ecf8e');
+  }catch(e){bsraLog('Refresh failed for #'+id+': '+e.message,'#e55');}
+  bsraRender();
+}
+window.bsraRefreshRace=bsraRefreshRace;
+window.bsraCopyRace=function(id){
+  var race=races[id];if(!race||!race.results)return;
+  var parts=[];
+  getUnits(race).forEach(function(u){
+    var cls=classifyCode(u.code);
+    if(cls&&cls.scores){parts.push(eligibleScored(u.rows).scored.map(function(r){return r.school;}).join('\t'));}
+    else{parts.push(u.rows.slice().sort(function(a,b){return a.place-b.place;}).map(function(r){return abbrev(r.rawSchool)||r.rawSchool;}).join('\t'));}
+  });
+  var csv=parts.join('\t');
+  var flash=function(){
+    var btn=document.getElementById('bsra-copy-'+id);
+    if(btn){var orig=btn.textContent;btn.textContent='Copied!';setTimeout(function(){if(btn)btn.textContent=orig;},1200);}
+  };
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(csv).then(flash).catch(function(){bsraFallbackCopy(csv);flash();});
+  }else{bsraFallbackCopy(csv);flash();}
+};
+function bsraFallbackCopy(text){
+  var ta=document.createElement('textarea');
+  ta.value=text;ta.style.position='fixed';ta.style.opacity='0';
+  document.body.appendChild(ta);ta.select();
+  try{document.execCommand('copy');}catch(e){}
+  document.body.removeChild(ta);
+}
 function renderRaces(){
   var el=document.getElementById('bsra-content');if(!el)return;
   var ids=Object.keys(races).sort(function(a,b){return+a-+b;});
   if(!ids.length){el.innerHTML='<div style="color:#7d94a0;text-align:center;padding:24px;">No races loaded</div>';return;}
+  var byRace={};collectUnits().forEach(function(u){(byRace[u.raceId]=byRace[u.raceId]||[]).push(u);});
   var h='';
   ids.forEach(function(id){
-    var race=races[id],cls=classifyRace(race);
-    var codeStr=race.codes.join(' + ')||'Race #'+id;
+    var race=races[id];
+    var codeStr=(race.codes||[]).join(' + ')||'Race #'+id;
     var hasResults=race.results&&race.results.length;
-    var repeat=race.isFirstOccurrence===false;
-    var scoring=cls&&cls.scores&&!repeat;
-    var color=scoring?cls.color:'rgba(255,255,255,.15)';
-    var reason='';
-    if(cls&&repeat)reason='repeat — not scored';
-    else if(cls&&!cls.scores)reason='Div 5+ — not scored';
-    else if(!cls)reason='not a scoring event';
-    h+='<div style="margin-bottom:6px;background:#13232b;border-radius:8px;border:1px solid rgba(255,255,255,.07);border-left:3px solid '+color+';padding:8px 12px;'+(scoring?'':'opacity:0.55;')+'">';
-    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasResults?'5px':'0')+';">';
-    h+='<div><span style="font-weight:600;font-size:12px;color:'+(scoring?cls.color:'#9fb0b8')+';">'+codeStr+'</span>'
-      +(reason?'<span style="font-size:10px;color:#7d94a0;margin-left:8px;">'+reason+'</span>':'')+'</div>';
-    h+='<span style="font-size:10px;color:#7d94a0;">#'+id+' · '+(race.time||'')+'</span></div>';
-    if(hasResults){
-      if(scoring){
-        var e=eligibleScored(race.results);var allRows=[];
-        e.scored.forEach(function(r){allRows.push({school:r.school,place:r.place,scoringPlace:r.scoringPlace,pts:cls.pts[r.scoringPlace]||0,eligible:true});});
-        e.ineligList.forEach(function(r){allRows.push({school:r.school,place:r.place,eligible:false});});
-        allRows.sort(function(a,b){return a.place-b.place;});
-        h+='<div style="display:flex;flex-wrap:wrap;gap:3px;">';
-        allRows.forEach(function(r){
-          if(r.eligible){h+='<div style="background:rgba(255,255,255,.05);border-radius:5px;padding:3px 7px;font-size:11px;"><span style="color:#7d94a0;margin-right:2px;">'+r.scoringPlace+'.</span><span style="font-weight:600;">'+r.school+'</span>'+(r.pts>0?'<span style="color:'+cls.color+';margin-left:3px;">+'+r.pts+'</span>':'')+'</div>';}
-          else{h+='<div style="background:rgba(255,255,255,.02);border-radius:5px;padding:3px 7px;font-size:11px;opacity:0.4;border:1px solid rgba(255,255,255,.05);"><span style="color:#7d94a0;">'+r.school+'</span></div>';}
-        });
-        h+='</div>';
-      }else{
-        h+='<div style="display:flex;flex-wrap:wrap;gap:3px;">';
-        (race.results||[]).forEach(function(r){var ab=(abbrev(r.rawSchool)||r.rawSchool)+(isInvitational(r.rawSchool)?' [inv]':'');h+='<div style="background:rgba(255,255,255,.04);border-radius:5px;padding:3px 7px;font-size:11px;color:#7d94a0;">'+r.place+'. '+ab+'</div>';});
-        h+='</div>';
-      }
-    }else if(race.results!==null){h+='<div style="font-size:11px;color:rgba(255,255,255,.2);">No results yet</div>';}
-    else{h+='<div style="font-size:11px;color:rgba(255,255,255,.2);">Loading…</div>';}
+    var combined=(race.codes||[]).length>1;
+    h+='<div style="margin-bottom:6px;background:#13232b;border-radius:8px;border:1px solid rgba(255,255,255,.07);padding:8px 12px;">';
+    h+='<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:'+(hasResults?'6px':'0')+';">';
+    h+='<div><span style="font-weight:600;font-size:12px;color:#cfe;">'+codeStr+'</span>'+(combined?'<span style="font-size:10px;color:#fb923c;margin-left:8px;">combined race</span>':'')+'</div>';
+    h+='<div style="display:flex;align-items:center;gap:6px;">'
+      +'<button id="bsra-refetch-'+id+'" onclick="bsraRefreshRace(\''+id+'\')" title="Re-check this race for results" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">&#8635;</button>'
+      +(hasResults?'<button id="bsra-copy-'+id+'" onclick="bsraCopyRace(\''+id+'\')" title="Copy placings — pastes across cells in Excel" style="background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#9fb0b8;border-radius:5px;padding:2px 7px;font-size:9px;cursor:pointer;">Copy</button>':'')
+      +'<span style="font-size:10px;color:#7d94a0;">#'+id+' · '+(race.time||'')+'</span></div></div>';
+    if(!hasResults){h+='<div style="font-size:11px;color:rgba(255,255,255,.2);">'+(race.results===null?'Loading…':'No results yet')+'</div></div>';return;}
+    (byRace[id]||[]).forEach(function(u){
+      var cls=u.cls,scoring=cls&&cls.scores&&u.first;
+      var color=scoring?cls.color:'rgba(255,255,255,.16)';
+      var reason=!cls?'not a scoring event':(!cls.scores?('Div '+cls.div+' — not scored'):(!u.first?'repeat — not scored':''));
+      h+='<div style="border-left:3px solid '+color+';padding:3px 0 3px 8px;margin:4px 0;'+(scoring?'':'opacity:.55;')+'">';
+      if(combined||u.code!==codeStr){h+='<div style="font-size:10px;color:'+(scoring?cls.color:'#9fb0b8')+';margin-bottom:3px;">'+(u.code||'?')+(reason?' <span style="color:#7d94a0;">· '+reason+'</span>':'')+'</div>';}
+      else if(reason){h+='<div style="font-size:10px;color:#7d94a0;margin-bottom:3px;">'+reason+'</div>';}
+      var e=eligibleScored(u.rows),allRows=[];
+      e.scored.forEach(function(r){allRows.push({school:r.school,place:r.place,scoringPlace:r.scoringPlace,pts:(cls?cls.pts[r.scoringPlace]:0)||0,eligible:true});});
+      e.ineligList.forEach(function(r){allRows.push({school:r.school,place:r.place,eligible:false});});
+      allRows.sort(function(a,b){return a.place-b.place;});
+      h+='<div style="display:flex;flex-wrap:wrap;gap:3px;">';
+      allRows.forEach(function(r){
+        if(r.eligible&&scoring){h+='<div style="background:rgba(255,255,255,.05);border-radius:5px;padding:3px 7px;font-size:11px;"><span style="color:#7d94a0;margin-right:2px;">'+r.scoringPlace+'.</span><span style="font-weight:600;">'+r.school+'</span>'+(r.pts>0?'<span style="color:'+cls.color+';margin-left:3px;">+'+r.pts+'</span>':'')+'</div>';}
+        else{h+='<div style="background:rgba(255,255,255,.02);border-radius:5px;padding:3px 7px;font-size:11px;opacity:.5;border:1px solid rgba(255,255,255,.05);"><span style="color:#7d94a0;">'+r.school+'</span></div>';}
+      });
+      h+='</div></div>';
+    });
     h+='</div>';
   });
   el.innerHTML=h;
@@ -487,7 +569,7 @@ function ordNum(n){n=n||1;var s=['th','st','nd','rd'],v=n%100;return n+(s[(v-20)
 function yearNumOf(cls){return cls.cat==='GY8'?'8':cls.cat==='GY9'?'9':cls.cat==='GY10'?'10':null;}
 function crewLabel(cls){
   var yr=yearNumOf(cls);
-  if(cls.boat==='1x')return (yr?'Year '+yr+' ':'Senior ')+'Single Scull';
+  if(cls.boat==='1x'){var sy=yr||((String(cls.code).toUpperCase().match(/GY(\d+)1X$/)||[])[1]);return (sy?'Schoolgirls Year '+sy+' ':'Schoolgirls ')+'Single Scull';}
   if(cls.boat==='4x+')return (yr?'Year '+yr:'Senior')+' '+ordNum(cls.div||1)+' Quad';
   if(cls.boat==='4+')return (yr?'Year '+yr+' ':'Senior ')+'Four';
   if(cls.boat==='8+'){
@@ -590,8 +672,7 @@ function buildResultsPointsTable(segs){
     SCHOOLS.forEach(function(s){
       var sp=byS[s],pts=sp?(seg.cls.pts[sp]||0):0;
       var top3=sp>=1&&sp<=3;
-      var bc=top3?MEDALC[sp-1]:'#d7d7d7';
-      var style='padding:5px 2px;text-align:center;border:1px solid '+bc+';font-size:10px;';
+      var style='padding:5px 2px;text-align:center;border:1px solid #d7d7d7;font-size:10px;'+(top3?('background:'+PODIUM[sp]+';'):'');
       style+=pts>0?('color:#20242a;font-weight:'+(top3?'800':'700')+';'):'color:#c2c2c2;font-weight:400;';
       R+='<td style="'+style+'">'+pts+'</td>';
     });
@@ -844,11 +925,13 @@ async function bsraLoad(){
   try{ids=await refreshStatus();}
   catch(e){bsraLog('Race list failed: '+e.message,'#e55');bsraStatus('Error');return;}
   var total=ids.length,failed=[];
-  bsraLog('Found '+total+' races · loading slowly to stay polite','#3ecf8e');
+  var cached=ids.filter(function(id){return!needsResults(races[id]);}).length;
+  bsraLog('Found '+total+' races'+(cached?' · '+cached+' restored from a previous session':'')+' · loading slowly to stay polite','#3ecf8e');
 
   for(var i=0;i<ids.length;i++){
     var id=ids[i];
     bsraProg(Math.round(i/total*80));
+    if(!needsResults(races[id]))continue; // already have this one cached — no need to hit the site again
     bsraStatus('Regatta #'+RID+' · Loading ('+(i+1)+'/'+total+')… slow mode');
     try{
       var n=await loadRace(id,2,8000);
@@ -882,5 +965,6 @@ async function bsraLoad(){
 checkForUpdate();
 setInterval(checkForUpdate,20*60*1000); // recheck roughly every 20 min in case a longer session outlasts an update
 autofillMeta();
+bsraRender(); // show anything restored from a previous session immediately, before the fetch loop even starts
 bsraLoad();
 })();
